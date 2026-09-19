@@ -1,0 +1,29 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# binaries
+/jevium
+/jevium-*
+*.exe
+*.test
+*.out
+dist/
+bin/
+artifacts/
+
+# go
+vendor/
+
+# editor / OS
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+*.iml
+
+# agent / local
+.crush/
+.local-development/
