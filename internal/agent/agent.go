@@ -114,40 +114,68 @@ func New(surface Surface, chooser Chooser, goal string, screenshots bool, record
 }
 
 func GoalVisible(goal string, p page.Page) bool {
-	hay := strings.ToLower(p.Text + "\n" + p.Source + "\n" + p.Title + "\n" + p.URL)
+	hay := strings.ToLower(strings.TrimSpace(p.Text) + "\n" + strings.TrimSpace(p.Title))
+	hay = strings.TrimSpace(hay)
 	if hay == "" {
 		return false
 	}
-	if q := policy.LiteralQuote(goal); q != "" {
-		return strings.Contains(hay, strings.ToLower(q))
+	needle := stopWhenNeedle(goal)
+	if needle == "" {
+		return false
 	}
-	if u := policy.LiteralURL(goal); u != "" {
-		return strings.Contains(hay, strings.ToLower(u))
+	if strings.Contains(hay, needle) {
+		return true
 	}
-	if needle := stopWhenNeedle(goal); needle != "" {
-		return strings.Contains(hay, needle)
+	parts := strings.Fields(needle)
+	if len(parts) == 0 {
+		return false
 	}
-	return false
+	last := parts[len(parts)-1]
+	if last == "results" && strings.Contains(hay, "result") {
+		return true
+	}
+	return strings.Contains(hay, last) && len(last) >= 4
 }
 
 func stopWhenNeedle(goal string) string {
-	lower := strings.ToLower(goal)
-	i := strings.Index(lower, "when ")
+	stripped := stripQuoted(goal)
+	lower := strings.ToLower(stripped)
+	i := strings.LastIndex(lower, "stop when ")
 	if i < 0 {
 		return ""
 	}
-	rest := strings.TrimSpace(goal[i+5:])
-	for _, suffix := range []string{" is visible", " appears", " is shown", "."} {
-		if j := strings.Index(strings.ToLower(rest), suffix); j > 0 {
+	rest := strings.TrimSpace(stripped[i+10:])
+	for _, suffix := range []string{" is visible", " are visible", " appears", " is shown", "."} {
+		if j := strings.Index(strings.ToLower(rest), suffix); j >= 0 {
 			rest = rest[:j]
 			break
 		}
 	}
 	rest = strings.TrimSpace(rest)
-	if len(rest) < 3 {
+	if rest == "" {
 		return ""
 	}
 	return strings.ToLower(rest)
+}
+
+func stripQuoted(s string) string {
+	var b strings.Builder
+	quote := byte(0)
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if quote == 0 && (c == '"' || c == '\'') {
+			quote = c
+			continue
+		}
+		if quote != 0 {
+			if c == quote {
+				quote = 0
+			}
+			continue
+		}
+		b.WriteByte(c)
+	}
+	return b.String()
 }
 
 func (a *Agent) elapsed() int {
@@ -258,6 +286,11 @@ func (a *Agent) Command(name string, fingerprint string) error {
 		if !ok {
 			return fmt.Errorf("unknown action %s", d.Choice)
 		}
+		if a.done(p) {
+			a.State.Status = "done"
+			a.State.ElapsedMS = a.elapsed()
+			return nil
+		}
 		if !a.Surface.Fresh(p, &action) {
 			return stale.Error{Msg: "page changed since the decision. Observe again"}
 		}
@@ -294,6 +327,7 @@ func (a *Agent) Command(name string, fingerprint string) error {
 			return err
 		}
 		a.pending = nil
+		a.failedDone = 0
 		a.State.ElapsedMS = a.elapsed()
 		prob := 0.0
 		if d.Probabilities != nil {
@@ -325,6 +359,10 @@ func (a *Agent) Command(name string, fingerprint string) error {
 			if err == nil {
 				_ = os.WriteFile(filepath.Join(a.RecordDir, fmt.Sprintf("%06d.jpg", a.State.ElapsedMS)), b, 0o644)
 			}
+		}
+		if a.done(next) {
+			a.State.Status = "done"
+			return nil
 		}
 		h := a.State.History
 		if len(h) >= 3 {

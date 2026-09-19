@@ -251,6 +251,15 @@ func matchingAction(p page.Page, action page.Action) (page.Action, bool) {
 	return page.Action{}, false
 }
 
+func fieldByLabel(p page.Page, label string) (page.Action, bool) {
+	for _, a := range p.Actions {
+		if a.Kind == "fill" && a.Label == label {
+			return a, true
+		}
+	}
+	return page.Action{}, false
+}
+
 func sameRect(a, b *page.Rect) bool {
 	if a == nil || b == nil {
 		return a == b
@@ -293,8 +302,8 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		if err != nil {
 			return err
 		}
-		if _, ok := matchingAction(current, action); !ok {
-			return StalePageError{Msg: "Screen changed since this decision. Observe again."}
+		if _, ok := fieldByLabel(current, action.Label); !ok {
+			return fmt.Errorf("field %q is gone after tap; not retrying", action.Label)
 		}
 		return d.typeText(*text)
 	case "select":
@@ -325,7 +334,7 @@ func (d *Device) typeText(text string) error {
 }
 
 func keyActions(text string) []w3cTick {
-	out := make([]w3cTick, 0, len(text)*2+2)
+	out := make([]w3cTick, 0, len(text)*2)
 	for _, r := range text {
 		s := string(r)
 		out = append(out,
@@ -333,7 +342,6 @@ func keyActions(text string) []w3cTick {
 			w3cTick{Type: "keyUp", Value: s},
 		)
 	}
-	out = append(out, w3cTick{Type: "keyDown", Value: "\uE007"}, w3cTick{Type: "keyUp", Value: "\uE007"})
 	return out
 }
 

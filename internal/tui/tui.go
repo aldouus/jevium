@@ -102,7 +102,14 @@ func renderActions(p page.Page, limit int) string {
 }
 
 func Run(a *agent.Agent) error {
-	p := tea.NewProgram(New(a))
-	_, err := p.Run()
-	return err
+	m := New(a)
+	p := tea.NewProgram(m)
+	final, err := p.Run()
+	if err != nil {
+		return err
+	}
+	if done, ok := final.(Model); ok && done.err != nil {
+		return done.err
+	}
+	return nil
 }

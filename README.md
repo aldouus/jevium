@@ -3,7 +3,7 @@
 Jevium is a harness that runs a natural language UI goal by letting Jev pick the next tap or keystroke from what is on screen, then executing it with Appium or Chrome.
 
 ```bash
-export APPIUM_UDID=00008110-000610D822C2401E
+export APPIUM_UDID=
 
 ./jevium --mode appium --bundle-id com.apple.mobilesafari --goal 'Open https://www.google.com and type "hello world". Stop when search results are visible.'
 

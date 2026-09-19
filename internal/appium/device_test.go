@@ -248,6 +248,20 @@ func TestFillTapsThenTypesWithW3CActions(t *testing.T) {
 	if first["type"] != "keyDown" || first["value"] != "h" {
 		t.Fatalf("first=%v", first)
 	}
+	got := ""
+	for _, step := range seq {
+		m := step.(map[string]any)
+		if m["type"] == "keyDown" {
+			ch := m["value"].(string)
+			if ch == "\uE007" {
+				t.Fatal("fill must not send Enter")
+			}
+			got += ch
+		}
+	}
+	if got != text {
+		t.Fatalf("typed %q want %q", got, text)
+	}
 	sawTap, sawSourceAfterTap, sawType := false, false, false
 	for _, c := range *calls {
 		if strings.Contains(c.Path, "/element/") {
@@ -343,7 +357,7 @@ func TestUnexpectedJSONFailsClosed(t *testing.T) {
 	}
 }
 
-func TestFillDoesNotTypeAfterFieldMoves(t *testing.T) {
+func TestFillTypesAfterKeyboardShiftsSameField(t *testing.T) {
 	const fieldXML = `<?xml version="1.0"?><AppiumAUT>
       <XCUIElementTypeApplication name="Safari" bundleId="com.apple.mobilesafari" visible="true">
         <XCUIElementTypeTextField name="Address" label="Address" value="" enabled="true"
@@ -371,7 +385,7 @@ func TestFillDoesNotTypeAfterFieldMoves(t *testing.T) {
 			value = nil
 		case r.Method == http.MethodPost && r.URL.Path == "/session/sess-1/actions":
 			typed = true
-			t.Fatal("typed into moved field")
+			value = nil
 		default:
 			value = nil
 		}
@@ -397,16 +411,11 @@ func TestFillDoesNotTypeAfterFieldMoves(t *testing.T) {
 		t.Fatal("missing fill action")
 	}
 	text := "https://example.com"
-	err = d.Act(field, p, &text)
-	if err == nil {
-		t.Fatal("expected stale after field moved")
+	if err := d.Act(field, p, &text); err != nil {
+		t.Fatal(err)
 	}
-	var se appium.StalePageError
-	if !errors.As(err, &se) {
-		t.Fatalf("want StalePageError got %T %v", err, err)
-	}
-	if typed {
-		t.Fatal("typed after move")
+	if !typed {
+		t.Fatal("did not type after keyboard shifted the same field")
 	}
 }
 

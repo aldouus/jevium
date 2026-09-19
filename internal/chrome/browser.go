@@ -84,19 +84,35 @@ func New(startURL string) (*Browser, error) {
 		"width": 1120, "height": 780, "deviceScaleFactor": 1, "mobile": false,
 	})
 	_, _ = b.sessionCall("Emulation.setFocusEmulationEnabled", map[string]any{"enabled": true})
-	if _, err := b.sessionCall("Page.navigate", map[string]any{"url": startURL}); err != nil {
+	if _, err := b.sessionCall("Page.enable", map[string]any{}); err != nil {
 		conn.Close()
 		return nil, err
 	}
+	nav, err := b.sessionCall("Page.navigate", map[string]any{"url": startURL})
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+	if errText, _ := nav["errorText"].(string); errText != "" {
+		conn.Close()
+		return nil, fmt.Errorf("chrome navigation to %s failed: %s", startURL, errText)
+	}
 	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
-		ready, _ := b.evaluate("document.readyState")
-		if str(ready) == "complete" {
-			break
+		href, herr := b.evaluate("location.href")
+		ready, rerr := b.evaluate("document.readyState")
+		if herr != nil || rerr != nil {
+			time.Sleep(20 * time.Millisecond)
+			continue
+		}
+		h, r := str(href), str(ready)
+		if r == "complete" && h != "" && h != "about:blank" && !strings.HasPrefix(h, "chrome-error://") {
+			return b, nil
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	return b, nil
+	conn.Close()
+	return nil, fmt.Errorf("chrome navigation to %s did not complete", startURL)
 }
 
 func debuggerWebSocket(origin string) (string, error) {
@@ -213,7 +229,7 @@ func (b *Browser) Observe(screenshot bool) (page.Page, error) {
 }
 
 func (b *Browser) Fresh(p page.Page, action *page.Action) bool {
-	if action != nil && (action.Kind == "click" || action.Kind == "select") {
+	if action != nil && (action.Kind == "click" || action.Kind == "select" || action.Kind == "fill") {
 		node, ok := action.Node.(float64)
 		if !ok {
 			if n, ok := action.Node.(int); ok {
@@ -238,6 +254,23 @@ func (b *Browser) Fresh(p page.Page, action *page.Action) bool {
 	want, _ := json.Marshal(p.Marker)
 	got, _ := json.Marshal(cur)
 	return string(want) == string(got)
+}
+
+func (b *Browser) nodePresent(action page.Action) bool {
+	node, ok := action.Node.(float64)
+	if !ok {
+		if n, ok := action.Node.(int); ok {
+			node = float64(n)
+		} else {
+			return false
+		}
+	}
+	cur, err := b.evaluate(fmt.Sprintf("(() => { const e=window.__jevium?.nodes.get(%d); return !!(e&&e.isConnected); })()", int(node)))
+	if err != nil {
+		return false
+	}
+	present, _ := cur.(bool)
+	return present
 }
 
 func guardFor(p page.Page, node int) any {
@@ -309,8 +342,8 @@ func (b *Browser) Act(action page.Action, p page.Page, text *string) error {
 		}
 	}
 	if action.Kind == "fill" {
-		if !b.Fresh(p, nil) {
-			return stale.Error{Msg: "target moved since tap. Observe again"}
+		if !b.nodePresent(action) {
+			return fmt.Errorf("field %q is gone after tap; not retrying", action.Label)
 		}
 		mod := 2
 		if runtime.GOOS == "darwin" {

@@ -195,6 +195,84 @@ func TestFailedDoneBlocksAfterRetries(t *testing.T) {
 	}
 }
 
+func TestGoalVisibleUsesStopClauseNotTypedQuote(t *testing.T) {
+	goal := `Open https://www.google.com and type "hello world". Stop when search results are visible.`
+	typed := page.Page{Text: "hello world", Title: "Google", URL: "https://www.google.com"}
+	if agent.GoalVisible(goal, typed) {
+		t.Fatal("typed quote or start URL must not count as the goal")
+	}
+	results := page.Page{Text: "About 1,840,000 results (0.42 seconds)", Title: "hello world - Google Search"}
+	if !agent.GoalVisible(goal, results) {
+		t.Fatal("stop clause missed visible search results")
+	}
+}
+
+func TestGoalVisibleIgnoresWhenInsideQuotes(t *testing.T) {
+	p := page.Page{Text: "done in the box", Title: "x"}
+	if agent.GoalVisible(`Type "stop when done" in the box. Stop when search results are visible.`, p) {
+		t.Fatal("quoted stop when leaked into the needle")
+	}
+}
+
+func TestGoalVisibleParsesAreVisible(t *testing.T) {
+	p := page.Page{Text: "flight options from Zurich"}
+	if !agent.GoalVisible("Find flights. Stop when flight options are visible.", p) {
+		t.Fatal("are visible suffix ignored")
+	}
+}
+
+func TestProgressResetsFailedDone(t *testing.T) {
+	p := sample()
+	s := &fakeSurface{page: p, fresh: true}
+	a, err := agent.New(s, fakeChooser{d: policy.Decision{Choice: "e3", Operation: "CLICK", Probabilities: map[string]float64{"e3": 1}}}, "Stop when Example Domain is visible.", false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		a.State.Decision = &policy.Decision{Choice: "DONE", Operation: "DONE"}
+		a.State.Status = "predicted"
+		if err := a.Command("act", p.Fingerprint); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a.State.Decision = &policy.Decision{Choice: "e3", Operation: "CLICK", Probabilities: map[string]float64{"e3": 1}}
+	a.State.Status = "predicted"
+	if err := a.Command("act", p.Fingerprint); err != nil {
+		t.Fatal(err)
+	}
+	a.State.Decision = &policy.Decision{Choice: "DONE", Operation: "DONE"}
+	a.State.Status = "predicted"
+	if err := a.Command("act", p.Fingerprint); err != nil {
+		t.Fatal(err)
+	}
+	if a.State.Status == "blocked" {
+		t.Fatal("failedDone was not reset after a real click")
+	}
+}
+
+func TestActStopsWhenGoalAlreadyVisible(t *testing.T) {
+	p := page.WithFingerprint(page.Page{
+		URL: "app://x", Title: "hello world - Google Search", Text: "search results for hello world",
+		Actions: []page.Action{{ID: "e3", Kind: "click", Label: "Next", Node: "n"}},
+	})
+	s := &fakeSurface{page: p, fresh: true}
+	a, err := agent.New(s, fakeChooser{d: policy.Decision{Choice: "e3", Operation: "CLICK", Probabilities: map[string]float64{"e3": 1}}}, `Type "hello world". Stop when search results are visible.`, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.State.Decision = &policy.Decision{Choice: "e3", Operation: "CLICK", Probabilities: map[string]float64{"e3": 1}}
+	a.State.Status = "predicted"
+	if err := a.Command("act", p.Fingerprint); err != nil {
+		t.Fatal(err)
+	}
+	if a.State.Status != "done" {
+		t.Fatalf("status=%s after goal already visible", a.State.Status)
+	}
+	if len(s.acted) != 0 {
+		t.Fatalf("mutated after goal already visible: %v", s.acted)
+	}
+}
+
 func TestInjectedVerifierCanAcceptOrReject(t *testing.T) {
 	p := sample()
 	s := &fakeSurface{page: p, fresh: true}

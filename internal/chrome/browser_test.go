@@ -69,10 +69,11 @@ func snapshotRaw(node float64) map[string]any {
 			},
 			map[string]any{"id": "wait", "kind": "wait", "label": "Wait for the page to update"},
 		},
-		"marker":  []any{"origin", "https://example.com/", 0.0, 0.0, 1120.0, 780.0, "Example Domain", "Example Domain"},
+		"marker":   []any{"origin", "https://example.com/", 0.0, 0.0, 1120.0, 780.0, "Example Domain", "Example Domain"},
 		"page_key": []any{"origin", "https://example.com/", 0.0, 0.0, 1120.0, 780.0, []any{}},
 		"guards": map[string]any{
 			"7": []any{7.0, "link", "More information...", nil, nil, nil, nil, false, nil, nil, nil, nil, "https://iana.org/", "Example Domain"},
+			"8": []any{8.0, "textbox", "Search", "", nil, nil, nil, false, nil, nil, nil, nil, nil, "Example Domain"},
 		},
 		"omitted_actions": 0,
 	}
@@ -258,7 +259,13 @@ func TestActFillRequiresHelperTextAndInsertsIt(t *testing.T) {
 	var inserted string
 	rt := &fakeRuntime{
 		eval: func(expr string) (any, error) {
-			if strings.Contains(expr, "c.guard") || strings.Contains(expr, "marker") {
+			if strings.Contains(expr, "isConnected") {
+				return true, nil
+			}
+			if strings.Contains(expr, "c.guard") {
+				return []any{raw["page_key"], raw["guards"].(map[string]any)["8"]}, nil
+			}
+			if strings.Contains(expr, "marker") {
 				return raw["marker"], nil
 			}
 			return map[string]any{"x": 110.0, "y": 62.0}, nil
