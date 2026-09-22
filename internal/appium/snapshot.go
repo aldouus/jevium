@@ -11,6 +11,7 @@ import (
 )
 
 var clickTypes = map[string]struct{}{
+	"XCUIElementTypeSlider": {},
 	"XCUIElementTypeButton": {}, "XCUIElementTypeIcon": {}, "XCUIElementTypeCell": {},
 	"XCUIElementTypeLink": {}, "XCUIElementTypeTab": {}, "XCUIElementTypeImage": {},
 	"XCUIElementTypeKey": {}, "XCUIElementTypeMenuItem": {}, "XCUIElementTypeCollectionViewCell": {},
@@ -216,6 +217,16 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 						base.Role = "button"
 					}
 					switch {
+					case kind == "XCUIElementTypeSlider":
+						for _, fraction := range []float64{0, .25, .5, .75, 1} {
+							a := base
+							a.Kind = "slider"
+							a.Role = "slider"
+							a.Delta = fraction
+							a.Node = nodeID + ":" + strconv.FormatFloat(fraction, 'f', 2, 64)
+							a.Label = label + " → " + strconv.Itoa(int(fraction*100)) + "%"
+							actions = append(actions, a)
+						}
 					case has(fillTypes, kind):
 						fill := base
 						fill.Kind = "fill"
@@ -271,6 +282,7 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 		}
 	}
 	visit(&root, window)
+	actions = gestureActions(actions)
 
 	omitted := 0
 	if len(actions) > page.MaxElementActions {

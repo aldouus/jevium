@@ -153,6 +153,7 @@ func ValidateChoice(answer ChoiceAnswer, ids map[string]struct{}) error {
 }
 
 var kindOps = map[string]string{
+	"long_press": "LONG_PRESS", "double_tap": "DOUBLE_TAP", "swipe_left": "SWIPE_LEFT", "swipe_right": "SWIPE_RIGHT", "drag": "DRAG", "pinch_in": "PINCH_IN", "pinch_out": "PINCH_OUT", "slider": "SET_SLIDER",
 	"picker_next":     "PICKER_NEXT",
 	"picker_previous": "PICKER_PREVIOUS",
 	"key_select_all":  "SELECT_ALL", "key_select_left": "SELECT_LEFT", "key_select_right": "SELECT_RIGHT",
@@ -241,6 +242,7 @@ func (c Client) Choose(state page.Page, goal string, history []History) (Decisio
 	}
 	elements, targets, controls := ActionSpace(state.Actions)
 	labels := map[string]string{
+		"LONG_PRESS": "Hold the observed target for one second.", "DOUBLE_TAP": "Double tap the observed target.", "SWIPE_LEFT": "Swipe left inside the observed target.", "SWIPE_RIGHT": "Swipe right inside the observed target.", "DRAG": "Drag an observed source to an observed destination.", "PINCH_IN": "Pinch closed inside the observed target.", "PINCH_OUT": "Pinch open inside the observed target.", "SET_SLIDER": "Move an observed slider toward the indicated percentage of its track.",
 		"PICKER_NEXT":     "Move the observed picker wheel to its next value.",
 		"PICKER_PREVIOUS": "Move the observed picker wheel to its previous value.",
 		"SELECT_ALL":      "Select all text in the focused field using Command+A.",

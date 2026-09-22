@@ -22,6 +22,7 @@ type Scroll struct {
 }
 
 type Action struct {
+	Destination  *Rect   `json:"destination,omitempty"`
 	ID           string  `json:"id"`
 	Kind         string  `json:"kind"`
 	Label        string  `json:"label"`
@@ -57,18 +58,20 @@ type Page struct {
 
 func Fingerprint(p Page) string {
 	type slim struct {
-		ID           string `json:"id"`
-		Kind         string `json:"kind"`
-		Label        string `json:"label"`
-		Role         string `json:"role"`
-		Value        string `json:"value"`
-		CurrentValue string `json:"current_value"`
-		Node         any    `json:"node"`
-		Checked      string `json:"checked"`
-		Expanded     string `json:"expanded"`
-		Selected     any    `json:"selected"`
-		Rect         *Rect  `json:"rect,omitempty"`
-		Direction    string `json:"direction,omitempty"`
+		Destination  *Rect   `json:"destination,omitempty"`
+		Delta        float64 `json:"delta,omitempty"`
+		ID           string  `json:"id"`
+		Kind         string  `json:"kind"`
+		Label        string  `json:"label"`
+		Role         string  `json:"role"`
+		Value        string  `json:"value"`
+		CurrentValue string  `json:"current_value"`
+		Node         any     `json:"node"`
+		Checked      string  `json:"checked"`
+		Expanded     string  `json:"expanded"`
+		Selected     any     `json:"selected"`
+		Rect         *Rect   `json:"rect,omitempty"`
+		Direction    string  `json:"direction,omitempty"`
 	}
 	type payload struct {
 		URL     string `json:"url"`
@@ -79,6 +82,7 @@ func Fingerprint(p Page) string {
 	actions := make([]slim, 0, len(p.Actions))
 	for _, a := range p.Actions {
 		actions = append(actions, slim{
+			Destination: a.Destination, Delta: a.Delta,
 			ID: a.ID, Kind: a.Kind, Label: a.Label, Role: a.Role, Value: a.Value,
 			CurrentValue: a.CurrentValue, Node: a.Node, Checked: a.Checked,
 			Expanded: a.Expanded, Selected: a.Selected,

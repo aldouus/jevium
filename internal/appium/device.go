@@ -277,6 +277,11 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		return StalePageError{Msg: "Screen changed since this decision. Observe again."}
 	}
 	switch action.Kind {
+	case "long_press", "double_tap", "swipe_left", "swipe_right", "drag", "pinch_in", "pinch_out", "slider":
+		if !d.Fresh(p, &action) {
+			return StalePageError{Msg: "Gesture target changed"}
+		}
+		return d.gesture(action)
 	case "key_select_all", "key_select_left", "key_select_right":
 		id, err := d.resolveElement(action)
 		if err != nil {
