@@ -38,7 +38,7 @@ func (d *Device) snapshot(src string) (page.Page, error) {
 		if resolved != id {
 			continue
 		}
-		for _, key := range []string{"backspace", "left", "right", "return"} {
+		for _, key := range []string{"backspace", "left", "right", "return", "select_all", "select_left", "select_right"} {
 			edit := a
 			edit.ID = "key_" + key
 			edit.Kind = edit.ID

@@ -61,7 +61,7 @@ func TestReplaceClearsObservedActiveFieldBeforeTyping(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, targets, _ := policy.ActionSpace(p.Actions)
-	for _, op := range []string{"TYPE_TEXT", "CLEAR_TEXT", "BACKSPACE", "CURSOR_LEFT", "CURSOR_RIGHT", "RETURN"} {
+	for _, op := range []string{"TYPE_TEXT", "CLEAR_TEXT", "BACKSPACE", "CURSOR_LEFT", "CURSOR_RIGHT", "RETURN", "SELECT_ALL", "SELECT_LEFT", "SELECT_RIGHT"} {
 		if len(targets[op]) != 1 {
 			t.Fatalf("%s targets=%v", op, targets[op])
 		}
@@ -85,6 +85,20 @@ func TestReplaceClearsObservedActiveFieldBeforeTyping(t *testing.T) {
 	wantKeys := []any{map[string]any{"elementId": "field", "keys": []any{"XCUIKeyboardKeyLeftArrow"}}}
 	if !reflect.DeepEqual(nativeKeys, wantKeys) {
 		t.Fatalf("native keys=%v", nativeKeys)
+	}
+	for _, tc := range []struct {
+		op, key string
+		flags   float64
+	}{{"SELECT_ALL", "a", 16}, {"SELECT_LEFT", "XCUIKeyboardKeyLeftArrow", 2}, {"SELECT_RIGHT", "XCUIKeyboardKeyRightArrow", 2}} {
+		for _, a := range targets[tc.op] {
+			if err := d.Act(a, p, nil); err != nil {
+				t.Fatal(err)
+			}
+		}
+		want := []any{map[string]any{"elementId": "field", "keys": []any{map[string]any{"key": tc.key, "modifierFlags": tc.flags}}}}
+		if !reflect.DeepEqual(nativeKeys, want) {
+			t.Fatalf("%s request=%v want=%v", tc.op, nativeKeys, want)
+		}
 	}
 }
 

@@ -276,10 +276,30 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		return StalePageError{Msg: "Screen changed since this decision. Observe again."}
 	}
 	switch action.Kind {
+	case "key_select_all", "key_select_left", "key_select_right":
+		id, err := d.resolveElement(action)
+		if err != nil {
+			return err
+		}
+		if err := d.requireActive(id); err != nil {
+			return err
+		}
+		// XCUIKeyModifierShift and Command, from XCUIAutomation/XCUIElement.h.
+		key, flags := "a", 1<<4
+		if action.Kind == "key_select_left" {
+			key, flags = "XCUIKeyboardKeyLeftArrow", 1<<1
+		}
+		if action.Kind == "key_select_right" {
+			key, flags = "XCUIKeyboardKeyRightArrow", 1<<1
+		}
+		return d.execute("mobile: keys", []map[string]any{{"elementId": id, "keys": []map[string]any{{"key": key, "modifierFlags": flags}}}})
 	case "key_backspace", "key_left", "key_right", "key_return":
 		keys := map[string]string{"key_backspace": "XCUIKeyboardKeyDelete", "key_left": "XCUIKeyboardKeyLeftArrow", "key_right": "XCUIKeyboardKeyRightArrow", "key_return": "XCUIKeyboardKeyReturn"}
 		id, err := d.resolveElement(action)
 		if err != nil {
+			return err
+		}
+		if err := d.requireActive(id); err != nil {
 			return err
 		}
 		return d.execute("mobile: keys", []map[string]any{{"elementId": id, "keys": []string{keys[action.Kind]}}})
