@@ -92,7 +92,19 @@ func onScreen(r page.Rect, window *page.Rect) bool {
 		return true
 	}
 	cx, cy := r.X+r.W/2, r.Y+r.H/2
-	return cx >= 0 && cy >= 0 && cx < window.W && cy < window.H
+	return cx >= window.X && cy >= window.Y && cx < window.X+window.W && cy < window.Y+window.H
+}
+
+func intersect(a page.Rect, b *page.Rect) page.Rect {
+	if b == nil {
+		return a
+	}
+	x, y := max(a.X, b.X), max(a.Y, b.Y)
+	return page.Rect{X: x, Y: y, W: max(0, min(a.X+a.W, b.X+b.W)-x), H: max(0, min(a.Y+a.H, b.Y+b.H)-y)}
+}
+
+func scrollContainer(kind string) bool {
+	return kind == "XCUIElementTypeScrollView" || kind == "XCUIElementTypeWebView" || kind == "XCUIElementTypeTable" || kind == "XCUIElementTypeCollectionView"
 }
 
 func walk(n node, fn func(node)) {
@@ -124,7 +136,8 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 			if n.local() == "XCUIElementTypeWindow" {
 				w, h := n.intAttr("width"), n.intAttr("height")
 				if w > 0 && h > 0 && window == nil {
-					window = &page.Rect{W: float64(w), H: float64(h)}
+					r := n.rect()
+					window = &r
 				}
 			}
 		})
@@ -146,6 +159,7 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 	})
 	actions := []page.Action{}
 	words := []string{}
+	var scrollRect *page.Rect
 	nextID := 1
 	identity := map[*node]string{}
 	var assign func(*node) string
@@ -153,22 +167,31 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 		if id, ok := identity[n]; ok {
 			return id
 		}
-		id := "n-" + strconv.Itoa(nextID)
+		id := n.local() + ":" + n.attr("name") + ":" + strconv.Itoa(nextID)
 		nextID++
 		identity[n] = id
 		return id
 	}
-	var visit func(*node)
-	visit = func(n *node) {
+	var visit func(*node, *page.Rect)
+	visit = func(n *node, clip *page.Rect) {
 		kind := n.local()
-		if _, ok := textTypes[kind]; ok && n.visible() {
+		r := n.rect()
+		if (scrollContainer(kind) || kind == "XCUIElementTypeWindow") && r.W > 0 && r.H > 0 {
+			bounds := intersect(r, clip)
+			clip = &bounds
+			if scrollContainer(kind) && n.visible() && n.boolAttr("hittable", true) && bounds.W > 0 && bounds.H > 0 && scrollRect == nil {
+				scrollRect = &bounds
+			}
+		}
+		visiblePart := intersect(r, clip)
+		if _, ok := textTypes[kind]; ok && n.visible() && visiblePart.W > 0 && visiblePart.H > 0 {
 			if t := n.attr("value", "label", "name"); t != "" {
 				words = append(words, t)
 			}
 		}
-		if _, skip := skipTypes[kind]; !skip && n.visible() {
-			r := n.rect()
-			if onScreen(r, window) {
+		actionable := has(fillTypes, kind) || has(selectTypes, kind) || has(toggleTypes, kind) || has(clickTypes, kind) || kind == "XCUIElementTypeOther" && n.boolAttr("accessible", false)
+		if _, skip := skipTypes[kind]; actionable && !skip && n.visible() && n.boolAttr("hittable", true) {
+			if onScreen(r, clip) {
 				label := n.label()
 				if label != "" {
 					nodeID := assign(n)
@@ -215,19 +238,22 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 						click.Kind = "click"
 						click.Checked = strconv.FormatBool(checked == "1" || strings.EqualFold(checked, "true"))
 						actions = append(actions, click)
-					case has(clickTypes, kind):
+					case has(clickTypes, kind), kind == "XCUIElementTypeOther" && n.boolAttr("accessible", false):
 						click := base
 						click.Kind = "click"
+						if kind == "XCUIElementTypeOther" {
+							click.Role = "element"
+						}
 						actions = append(actions, click)
 					}
 				}
 			}
 		}
 		for i := range n.Nodes {
-			visit(&n.Nodes[i])
+			visit(&n.Nodes[i], clip)
 		}
 	}
-	visit(&root)
+	visit(&root, window)
 
 	omitted := 0
 	if len(actions) > page.MaxElementActions {
@@ -239,6 +265,12 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 	}
 	actions = append(actions, page.Action{ID: "wait", Kind: "wait", Label: "Wait for the screen to update"})
 	actions = append(actions, page.Action{ID: "home", Kind: "home", Label: "Go to Home Screen"})
+	if scrollRect != nil && !hasAlert {
+		actions = append(actions,
+			page.Action{ID: "scroll_down", Kind: "scroll", Label: "Scroll down to reveal content below", Direction: "up", Rect: scrollRect},
+			page.Action{ID: "scroll_up", Kind: "scroll", Label: "Scroll up to reveal content above", Direction: "down", Rect: scrollRect},
+		)
+	}
 	if hasAlert {
 		actions = append(actions,
 			page.Action{ID: "accept_alert", Kind: "accept_alert", Label: "Accept the system alert"},

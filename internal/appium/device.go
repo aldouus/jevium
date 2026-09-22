@@ -100,12 +100,25 @@ func New(cfg Config) (*Device, error) {
 		if err := d.call(http.MethodGet, d.path("/window/rect"), nil, &rect); err != nil {
 			return nil, err
 		}
+		if err := d.enableHitTesting(); err != nil {
+			return nil, err
+		}
 		return d, nil
 	}
 	if err := d.createSession(); err != nil {
 		return nil, err
 	}
+	if err := d.enableHitTesting(); err != nil {
+		_ = d.Close()
+		return nil, err
+	}
 	return d, nil
+}
+
+func (d *Device) enableHitTesting() error {
+	return d.call(http.MethodPost, d.path("/appium/settings"), map[string]any{
+		"settings": map[string]bool{"includeHittableInPageSource": true},
+	}, nil)
 }
 
 func (d *Device) path(suffix string) string { return "/session/" + d.sessionID + suffix }
@@ -282,11 +295,19 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 	case "dismiss_alert":
 		return d.call(http.MethodPost, d.path("/alert/dismiss"), struct{}{}, nil)
 	case "scroll":
-		dir := action.Direction
-		if dir == "" {
-			dir = "up"
+		r := action.Rect
+		if r == nil || r.W <= 0 || r.H <= 0 {
+			return StalePageError{Msg: "Scroll container is no longer visible"}
 		}
-		return d.execute("mobile: swipe", []swipeArg{{Direction: dir}})
+		from, to := r.Y+r.H*0.75, r.Y+r.H*0.25
+		switch action.Direction {
+		case "up":
+		case "down":
+			from, to = to, from
+		default:
+			return UnsupportedError{Msg: "Unsupported scroll direction"}
+		}
+		return d.execute("mobile: dragFromToForDuration", []dragArg{{FromX: r.X + r.W/2, ToX: r.X + r.W/2, FromY: from, ToY: to, Duration: 0.1}})
 	case "fill":
 		if text == nil || strings.TrimSpace(*text) == "" {
 			return fmt.Errorf("TYPE_TEXT needs text from the helper; the executor does not guess")

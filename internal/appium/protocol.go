@@ -46,8 +46,12 @@ type bundleArg struct {
 	BundleID string `json:"bundleId"`
 }
 
-type swipeArg struct {
-	Direction string `json:"direction"`
+type dragArg struct {
+	FromX    float64 `json:"fromX"`
+	FromY    float64 `json:"fromY"`
+	ToX      float64 `json:"toX"`
+	ToY      float64 `json:"toY"`
+	Duration float64 `json:"duration"`
 }
 
 type w3cActionsRequest struct {

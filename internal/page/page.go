@@ -67,13 +67,14 @@ func Fingerprint(p Page) string {
 		Checked      string `json:"checked"`
 		Expanded     string `json:"expanded"`
 		Selected     any    `json:"selected"`
+		Rect         *Rect  `json:"rect,omitempty"`
+		Direction    string `json:"direction,omitempty"`
 	}
 	type payload struct {
 		URL     string `json:"url"`
 		Text    string `json:"text"`
 		Actions []slim `json:"actions"`
 		Scroll  Scroll `json:"scroll"`
-		Source  string `json:"source,omitempty"`
 	}
 	actions := make([]slim, 0, len(p.Actions))
 	for _, a := range p.Actions {
@@ -81,10 +82,11 @@ func Fingerprint(p Page) string {
 			ID: a.ID, Kind: a.Kind, Label: a.Label, Role: a.Role, Value: a.Value,
 			CurrentValue: a.CurrentValue, Node: a.Node, Checked: a.Checked,
 			Expanded: a.Expanded, Selected: a.Selected,
+			Rect: a.Rect, Direction: a.Direction,
 		})
 	}
 	raw, err := json.Marshal(payload{
-		URL: p.URL, Text: p.Text, Actions: actions, Scroll: p.Scroll, Source: p.Source,
+		URL: p.URL, Text: p.Text, Actions: actions, Scroll: p.Scroll,
 	})
 	if err != nil {
 		return ""

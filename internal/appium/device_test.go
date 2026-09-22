@@ -116,6 +116,50 @@ func TestObserveIsOneSourceRead(t *testing.T) {
 	}
 }
 
+func TestObservedScrollExecutesOneSwipe(t *testing.T) {
+	source := `<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeScrollView visible="true" x="240" y="100" width="100" height="400"/></XCUIElementTypeWindow></AppiumAUT>`
+	srv, calls := mockAppium(t, source, nil)
+	d, err := appium.New(appium.Config{URL: srv.URL, UDID: "x", HTTP: srv.Client()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := d.Observe(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, ok := page.FindAction(p.Actions, "scroll_down")
+	if !ok {
+		t.Fatal("scroll_down missing")
+	}
+	if err := d.Act(a, p, nil); err != nil {
+		t.Fatal(err)
+	}
+	swipes := 0
+	settings := 0
+	for _, call := range *calls {
+		if strings.HasSuffix(call.Path, "/appium/settings") {
+			settings++
+			if call.Body["settings"].(map[string]any)["includeHittableInPageSource"] != true {
+				t.Fatal("hit testing not enabled")
+			}
+		}
+		if call.Body["script"] == "mobile: dragFromToForDuration" {
+			swipes++
+			args := call.Body["args"].([]any)
+			if len(args) != 1 {
+				t.Fatalf("swipe args=%v", args)
+			}
+			gesture := args[0].(map[string]any)
+			if gesture["fromX"] != float64(290) || gesture["toX"] != float64(290) || gesture["fromY"] != float64(400) || gesture["toY"] != float64(200) {
+				t.Fatalf("swipe args=%v", args)
+			}
+		}
+	}
+	if swipes != 1 || settings != 1 {
+		t.Fatalf("swipes=%d settings=%d", swipes, settings)
+	}
+}
+
 func TestActRejectsStalePage(t *testing.T) {
 	current := oneIcon
 	armed := false

@@ -6,6 +6,7 @@ import (
 
 	"github.com/aldous/jevium/internal/appium"
 	"github.com/aldous/jevium/internal/page"
+	"github.com/aldous/jevium/internal/policy"
 )
 
 const springboard = `<?xml version="1.0" encoding="UTF-8"?>
@@ -250,4 +251,118 @@ func itoa(n int) string {
 		n /= 10
 	}
 	return string(digits)
+}
+
+func TestWebViewOffersScrollOperations(t *testing.T) {
+	p, err := appium.SnapshotFromSource(`<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeScrollView visible="true" x="0" y="50" width="375" height="650"><XCUIElementTypeWebView visible="true" x="0" y="50" width="375" height="650"/></XCUIElementTypeScrollView></XCUIElementTypeWindow></AppiumAUT>`, "com.apple.mobilesafari", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, controls := policy.ActionSpace(p.Actions)
+	for operation, direction := range map[string]string{"SCROLL_DOWN": "up", "SCROLL_UP": "down"} {
+		a, ok := controls[operation]
+		if !ok || a.Kind != "scroll" || a.Direction != direction {
+			t.Fatalf("%s: action=%+v found=%v", operation, a, ok)
+		}
+	}
+}
+
+func TestAccessibleCustomControlIsOffered(t *testing.T) {
+	p, err := appium.SnapshotFromSource(`<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeOther label="Menu" visible="true" accessible="true" hittable="true" x="271" y="114" width="80" height="44"/><XCUIElementTypeOther label="Layout" visible="true" accessible="false" hittable="true" x="0" y="50" width="375" height="650"/></XCUIElementTypeWindow></AppiumAUT>`, "com.apple.mobilesafari", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clicks := kinds(p, "click")
+	if len(clicks) != 1 || clicks[0].Label != "Menu" {
+		t.Fatalf("clicks=%+v", clicks)
+	}
+}
+
+func TestScrollTargetsHittableForegroundContainer(t *testing.T) {
+	source := `<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeScrollView visible="true" hittable="false" x="0" y="0" width="375" height="812"/><XCUIElementTypeScrollView visible="true" hittable="true" x="20" y="400" width="335" height="350"/></XCUIElementTypeWindow></AppiumAUT>`
+	p, err := appium.SnapshotFromSource(source, "app", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"scroll_down", "scroll_up"} {
+		a, ok := page.FindAction(p.Actions, id)
+		if !ok || a.Rect == nil || *a.Rect != (page.Rect{X: 20, Y: 400, W: 335, H: 350}) {
+			t.Fatalf("%s: action=%+v found=%v", id, a, ok)
+		}
+	}
+}
+
+func TestSnapshotRejectsCoveredAndClippedControls(t *testing.T) {
+	source := `<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeScrollView visible="true" x="0" y="50" width="375" height="550">
+<XCUIElementTypeButton label="Available" visible="true" hittable="true" x="10" y="100" width="100" height="40"/>
+<XCUIElementTypeButton label="Covered" visible="true" hittable="false" x="10" y="200" width="100" height="40"/>
+<XCUIElementTypeButton label="Below container" visible="true" hittable="true" x="10" y="650" width="100" height="40"/>
+<XCUIElementTypeStaticText label="Offscreen answer" visible="true" x="10" y="850" width="100" height="40"/>
+</XCUIElementTypeScrollView></XCUIElementTypeWindow></AppiumAUT>`
+	p, err := appium.SnapshotFromSource(source, "com.apple.mobilesafari", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clicks := kinds(p, "click")
+	if len(clicks) != 1 || clicks[0].Label != "Available" {
+		t.Fatalf("clicks=%+v", clicks)
+	}
+	if p.Text != "" {
+		t.Fatalf("offscreen text exposed: %q", p.Text)
+	}
+}
+
+func TestSnapshotIgnoresDecorativeSourceChangesButTracksTargetGeometry(t *testing.T) {
+	source := `<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeOther x="0" y="0" width="375" height="812" animationTick="1"><XCUIElementTypeButton label="Menu" visible="true" x="10" y="100" width="100" height="40"/></XCUIElementTypeOther></XCUIElementTypeWindow></AppiumAUT>`
+	snapshot := func(s string) page.Page {
+		t.Helper()
+		p, err := appium.SnapshotFromSource(s, "com.apple.mobilesafari", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	original := snapshot(source)
+	decorative := snapshot(strings.Replace(source, `animationTick="1"`, `animationTick="2"`, 1))
+	if original.Fingerprint != decorative.Fingerprint {
+		t.Fatal("decorative XML invalidates unchanged targets")
+	}
+	inserted := snapshot(strings.Replace(source, `<XCUIElementTypeButton`, `<XCUIElementTypeOther accessible="false" x="0" y="0" width="30" height="30"/><XCUIElementTypeButton`, 1))
+	if original.Fingerprint != inserted.Fingerprint {
+		t.Fatal("decorative sibling invalidates unchanged targets")
+	}
+	moved := snapshot(strings.Replace(source, `y="100"`, `y="120"`, 1))
+	if original.Fingerprint == moved.Fingerprint {
+		t.Fatal("moved tap target did not invalidate snapshot")
+	}
+}
+
+func TestNativeTargetIdentityChangesFingerprint(t *testing.T) {
+	source := `<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeButton name="approve-alice" label="Approve" visible="true" x="10" y="100" width="100" height="40"/></XCUIElementTypeWindow></AppiumAUT>`
+	a, err := appium.SnapshotFromSource(source, "app", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := appium.SnapshotFromSource(strings.Replace(source, "approve-alice", "approve-bob", 1), "app", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Fingerprint == b.Fingerprint {
+		t.Fatal("replacement target was treated as fresh")
+	}
+}
+
+func TestVisibleWebContentSurvivesOffscreenStructuralAncestor(t *testing.T) {
+	source := `<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeWebView visible="true" x="0" y="0" width="375" height="812"><XCUIElementTypeOther visible="false" x="0" y="-1000" width="375" height="812"><XCUIElementTypeStaticText label="Visible paragraph" visible="true" x="16" y="100" width="300" height="40"/><XCUIElementTypeButton label="Visible button" visible="true" hittable="true" x="16" y="160" width="100" height="40"/></XCUIElementTypeOther></XCUIElementTypeWebView></XCUIElementTypeWindow></AppiumAUT>`
+	p, err := appium.SnapshotFromSource(source, "app", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Text != "Visible paragraph" {
+		t.Fatalf("text=%q", p.Text)
+	}
+	clicks := kinds(p, "click")
+	if len(clicks) != 1 || clicks[0].Label != "Visible button" {
+		t.Fatalf("clicks=%+v", clicks)
+	}
 }
