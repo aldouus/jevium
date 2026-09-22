@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func (d *Device) secretSnapshot(source string) (page.Page, error) {
+func (d *Device) secretSnapshot(source, bundle string) (page.Page, error) {
 	secrets := make([]string, 0, len(d.cfg.SecretFields))
 	for _, ref := range d.cfg.SecretFields {
 		if secret := os.Getenv(ref); secret != "" {
@@ -26,7 +26,7 @@ func (d *Device) secretSnapshot(source string) (page.Page, error) {
 		}
 		return s
 	}
-	p, err := snapshotFromSource(source, d.cfg.BundleID, nil, true, redact)
+	p, err := snapshotFromSource(source, bundle, nil, true, redact)
 	if err != nil {
 		return p, err
 	}

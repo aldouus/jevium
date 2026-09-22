@@ -3,6 +3,7 @@ package appium
 import (
 	"fmt"
 	"github.com/aldous/jevium/internal/page"
+	"net/http"
 	"net/url"
 	"regexp"
 )
@@ -17,6 +18,9 @@ func validateNavigation(cfg Config) error {
 		}
 		if cfg.BundleID == "" {
 			return fmt.Errorf("--url requires a bundle id")
+		}
+		if cfg.BundleID == "com.apple.springboard" {
+			return fmt.Errorf("--url requires a browser bundle id, not SpringBoard")
 		}
 	}
 	seen := map[string]bool{}
@@ -49,7 +53,20 @@ func (d *Device) allowedApp(bundle string) bool {
 }
 
 func (d *Device) navigationSnapshot(source string) (page.Page, error) {
-	p, err := d.secretSnapshot(source)
+	bundle := d.cfg.BundleID
+	if len(d.cfg.AllowedApps) > 0 {
+		var info struct {
+			BundleID string `json:"bundleId"`
+		}
+		if err := d.call(http.MethodPost, d.path("/execute/sync"), executeRequest[struct{}]{Script: "mobile: activeAppInfo", Args: []struct{}{}}, &info); err != nil {
+			return page.Page{}, err
+		}
+		if !bundlePattern.MatchString(info.BundleID) {
+			return page.Page{}, DeviceError{Msg: "Appium activeAppInfo returned no valid bundle id"}
+		}
+		bundle = info.BundleID
+	}
+	p, err := d.secretSnapshot(source, bundle)
 	if err != nil {
 		return p, err
 	}
