@@ -3,11 +3,18 @@ package agent
 import (
 	"fmt"
 	"github.com/aldous/jevium/internal/page"
+	"reflect"
 	"strings"
 )
 
 // ActionOutcome separates a changed observation from proof of the intended effect.
 func ActionOutcome(action page.Action, text *string, before, after page.Page) string {
+	if !sameDocument(before, after) {
+		if before.Fingerprint != after.Fingerprint || !reflect.DeepEqual(before.PageKey, after.PageKey) {
+			return "observed-change"
+		}
+		return "unverified"
+	}
 	if action.Kind == "select" {
 		found, matches := false, true
 		for _, candidate := range after.Actions {

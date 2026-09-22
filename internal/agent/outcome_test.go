@@ -7,8 +7,8 @@ import (
 
 func TestOutcomeDistinguishesChangesFromVerification(t *testing.T) {
 	a := page.Action{Node: "toggle", Kind: "click", Label: "Enabled", Checked: "false"}
-	before := page.WithFingerprint(page.Page{Text: "Before", Actions: []page.Action{a}})
-	after := page.WithFingerprint(page.Page{Text: "Clock ticked", Actions: []page.Action{a}})
+	before := page.WithFingerprint(page.Page{URL: "https://example.test", PageKey: []any{1}, Text: "Before", Actions: []page.Action{a}})
+	after := page.WithFingerprint(page.Page{URL: "https://example.test", PageKey: []any{1}, Text: "Clock ticked", Actions: []page.Action{a}})
 	if got := ActionOutcome(a, nil, before, after); got != "observed-change" {
 		t.Fatalf("unrelated change = %s", got)
 	}
@@ -37,11 +37,11 @@ func TestStopsRepeatedToggleCycle(t *testing.T) {
 }
 
 func TestSelectionVerifiedAfterChosenOptionDisappears(t *testing.T) {
-	action := page.Action{Node: "country", Kind: "select", Label: "Country → Canada", Value: "Canada", CurrentValue: "France"}
-	before := page.WithFingerprint(page.Page{Actions: []page.Action{action}})
-	after := page.WithFingerprint(page.Page{Actions: []page.Action{
-		{Node: "country", Kind: "select", Label: "Country → France", Value: "France", CurrentValue: "Canada"},
-		{Node: "country", Kind: "select", Label: "Country → Italy", Value: "Italy", CurrentValue: "Canada"},
+	action := page.Action{Node: 7, Kind: "select", Label: "Country → Canada", Value: "ca", CurrentValue: "fr"}
+	before := page.WithFingerprint(page.Page{URL: "https://example.test", PageKey: []any{1}, Actions: []page.Action{action}})
+	after := page.WithFingerprint(page.Page{URL: "https://example.test", PageKey: []any{1}, Actions: []page.Action{
+		{Node: 7, Kind: "select", Label: "Country → France", Value: "fr", CurrentValue: "ca"},
+		{Node: 7, Kind: "select", Label: "Country → Italy", Value: "it", CurrentValue: "ca"},
 	}})
 	if got := ActionOutcome(action, nil, before, after); got != "verified" {
 		t.Fatalf("select outcome = %s", got)
@@ -50,5 +50,21 @@ func TestSelectionVerifiedAfterChosenOptionDisappears(t *testing.T) {
 	after = page.WithFingerprint(after)
 	if got := ActionOutcome(action, nil, before, after); got == "verified" {
 		t.Fatal("inconsistent state verified")
+	}
+}
+
+func TestReusedFieldAfterNavigationIsNotVerified(t *testing.T) {
+	a := page.Action{Node: 1, Kind: "fill", Label: "Search"}
+	before := page.WithFingerprint(page.Page{URL: "https://example.test", PageKey: []any{1}, Actions: []page.Action{a}})
+	text := "query"
+	a.Value = text
+	for _, next := range []page.Page{
+		{URL: "https://other.test", PageKey: []any{2}, Actions: []page.Action{a}},
+		{URL: before.URL, PageKey: []any{2}, Actions: []page.Action{a}},
+		{URL: before.URL, Actions: []page.Action{a}},
+	} {
+		if got := ActionOutcome(before.Actions[0], &text, before, page.WithFingerprint(next)); got == "verified" {
+			t.Fatalf("new/unproven document verified: %+v", next)
+		}
 	}
 }
