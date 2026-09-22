@@ -37,6 +37,7 @@ func run(args []string) error {
 	var allowedApps goalList
 	fs.Var(&allowedApps, "allow-app", "bundle id permitted for launch, switch, and terminate (repeatable)")
 	wda := fs.Int("wda-local-port", env.Atoi("APPIUM_WDA_LOCAL_PORT", 8101), "WDA local port")
+	deviceControls := fs.Bool("device-controls", false, "enable observed rotation, keyboard dismissal, lock and OS unlock controls")
 	record := fs.String("record-dir", "", "optional screenshot directory")
 	screenshots := fs.Bool("screenshots", false, "capture screenshots (not sent to Jev)")
 	interactive := fs.Bool("tui", false, "Bubble Tea inspector")
@@ -65,7 +66,8 @@ func run(args []string) error {
 	case "appium":
 		surface, err = appium.New(appium.Config{
 			StartURL: *startURL, AllowedApps: allowedApps,
-			URL: *appiumURL, UDID: *udid, BundleID: *bundle, SessionID: *session, WDALocalPort: *wda,
+			DeviceControls: *deviceControls,
+			URL:            *appiumURL, UDID: *udid, BundleID: *bundle, SessionID: *session, WDALocalPort: *wda,
 		})
 	case "chrome":
 		if *startURL == "" {

@@ -40,6 +40,7 @@ type Config struct {
 	SecretFields       map[string]string
 	StartURL           string
 	AllowedApps        []string
+	DeviceControls     bool
 	URL                string
 	UDID               string
 	BundleID           string
@@ -393,6 +394,8 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 			return d.activate(action.Value)
 		}
 		return d.execute("mobile: terminateApp", []bundleArg{{BundleID: action.Value}})
+	case "rotate", "hide_keyboard", "lock", "unlock":
+		return d.control(action, p)
 	case "wait":
 		time.Sleep(100 * time.Millisecond)
 		return nil
