@@ -49,6 +49,9 @@ func run(args []string) error {
 	if *mode != "appium" && len(allowedApps) > 0 {
 		return fmt.Errorf("--allow-app requires appium mode")
 	}
+	if *mode != "appium" && *deviceControls {
+		return fmt.Errorf("--device-controls requires appium mode")
+	}
 	if _, err := env.Require("TYPESAFE_API_KEY", "to call TypeSafe Jev"); err != nil {
 		return err
 	}
