@@ -277,8 +277,12 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 	}
 	switch action.Kind {
 	case "key_backspace", "key_left", "key_right", "key_return":
-		keys := map[string]string{"key_backspace": "\uE003", "key_left": "\uE012", "key_right": "\uE014", "key_return": "\uE006"}
-		return d.typeText(keys[action.Kind])
+		keys := map[string]string{"key_backspace": "XCUIKeyboardKeyDelete", "key_left": "XCUIKeyboardKeyLeftArrow", "key_right": "XCUIKeyboardKeyRightArrow", "key_return": "XCUIKeyboardKeyReturn"}
+		id, err := d.resolveElement(action)
+		if err != nil {
+			return err
+		}
+		return d.execute("mobile: keys", []map[string]any{{"elementId": id, "keys": []string{keys[action.Kind]}}})
 	case "clear_text":
 		id, err := d.focusField(action)
 		if err != nil {
