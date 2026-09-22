@@ -168,6 +168,7 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 		}
 	})
 	actions := []page.Action{}
+	fullyVisible := map[any]bool{}
 	words := []string{}
 	var scrollRect *page.Rect
 	nextID := 1
@@ -205,6 +206,7 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 				label := n.label()
 				if label != "" {
 					nodeID := assign(n)
+					fullyVisible[nodeID] = r == visiblePart
 					rect := r
 					base := page.Action{
 						Node:  nodeID,
@@ -223,7 +225,7 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 							a.Kind = "slider"
 							a.Role = "slider"
 							a.Delta = fraction
-							a.Node = nodeID + ":" + strconv.FormatFloat(fraction, 'f', 2, 64)
+							a.Node = nodeID
 							a.Label = label + " → " + strconv.Itoa(int(fraction*100)) + "%"
 							actions = append(actions, a)
 						}
@@ -282,11 +284,11 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 		}
 	}
 	visit(&root, window)
-	actions = gestureActions(actions)
+	actions, gestureOmitted := gestureActions(actions, fullyVisible)
 
-	omitted := 0
+	omitted := gestureOmitted
 	if len(actions) > page.MaxElementActions {
-		omitted = len(actions) - page.MaxElementActions
+		omitted += len(actions) - page.MaxElementActions
 		actions = actions[:page.MaxElementActions]
 	}
 	for i := range actions {

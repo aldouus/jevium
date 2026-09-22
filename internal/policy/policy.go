@@ -217,7 +217,7 @@ func ActionSpace(actions []page.Action) ([]Element, map[string]map[string]page.A
 			el.Operations = append(el.Operations, op)
 		}
 		target := index
-		if action.Kind == "select" {
+		if action.Kind == "select" || action.Kind == "slider" {
 			target = fmt.Sprintf("%s:%d", index, len(el.Options)+1)
 			el.Options = append(el.Options, ElementOption{Index: target, Label: action.Label, Value: action.Value})
 		}

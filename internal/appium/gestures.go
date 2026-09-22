@@ -3,16 +3,19 @@ package appium
 import (
 	"fmt"
 	"github.com/aldous/jevium/internal/page"
+	"net/http"
+	"net/url"
+	"strconv"
 )
 
-func gestureActions(actions []page.Action) []page.Action {
+func gestureActions(actions []page.Action, fullyVisible map[any]bool) ([]page.Action, int) {
 	if len(actions) >= page.MaxElementActions {
-		return actions
+		return actions, 0
 	}
 	var gestures []page.Action
 	var dragSources []page.Action
 	for _, a := range actions {
-		if a.Kind != "click" {
+		if a.Kind != "click" || !fullyVisible[a.Node] {
 			continue
 		}
 		for _, kind := range []string{"long_press", "double_tap", "swipe_left", "swipe_right", "pinch_in", "pinch_out"} {
@@ -38,10 +41,11 @@ func gestureActions(actions []page.Action) []page.Action {
 		}
 	}
 	remaining := page.MaxElementActions - len(actions)
+	omitted := max(0, len(gestures)-remaining)
 	if len(gestures) > remaining {
 		gestures = gestures[:remaining]
 	}
-	return append(actions, gestures...)
+	return append(actions, gestures...), omitted
 }
 
 func (d *Device) gesture(a page.Action) error {
@@ -51,18 +55,20 @@ func (d *Device) gesture(a page.Action) error {
 	}
 	r := a.Rect
 	switch a.Kind {
+	case "slider":
+		id, err := d.resolveElement(a)
+		if err != nil {
+			return err
+		}
+		return d.call(http.MethodPost, d.path("/element/"+url.PathEscape(id)+"/value"), map[string]string{"text": strconv.FormatFloat(a.Delta, 'f', 2, 64)}, nil)
 	case "long_press":
 		return d.execute("mobile: touchAndHold", []map[string]any{{"x": x, "y": y, "duration": 1}})
 	case "double_tap":
 		return d.execute("mobile: doubleTap", []point{{X: x, Y: y}})
-	case "swipe_left", "swipe_right", "slider":
+	case "swipe_left", "swipe_right":
 		from, to := r.X+r.W*.8, r.X+r.W*.2
 		if a.Kind == "swipe_right" {
 			from, to = to, from
-		}
-		if a.Kind == "slider" {
-			from = x
-			to = r.X + r.W*(.1+.8*a.Delta)
 		}
 		return d.execute("mobile: dragFromToForDuration", []dragArg{{FromX: from, FromY: y, ToX: to, ToY: y, Duration: .1}})
 	case "drag":

@@ -56,6 +56,8 @@ func mockAppium(t *testing.T, source string, onPost func(*recorded) any) (*httpt
 			value = map[string]any{"sessionId": "sess-1"}
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/source"):
 			value = source
+		case strings.Contains(r.URL.Path, "/element/") && onPost != nil:
+			value = onPost(&item)
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/rect"):
 			value = map[string]any{"x": 30, "y": 90, "width": 50, "height": 50}
 		case r.Method == http.MethodPost && onPost != nil:
