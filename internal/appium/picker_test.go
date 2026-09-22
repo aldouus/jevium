@@ -13,7 +13,7 @@ import (
 func TestPickerUsesVerifiedNativeReference(t *testing.T) {
 	const source = `<AppiumAUT>
   <XCUIElementTypePickerWheel name="Month" label="Month" value="April"
-    values="April,May" x="20" y="100" width="120" height="200"/>
+    values="April,May" x="20.5" y="100" width="120.25" height="200"/>
 </AppiumAUT>`
 	for _, op := range []string{"SELECT", "PICKER_NEXT", "PICKER_PREVIOUS"} {
 		t.Run(op, func(t *testing.T) {
@@ -30,7 +30,7 @@ func TestPickerUsesVerifiedNativeReference(t *testing.T) {
 				case strings.HasSuffix(r.URL.Path, "/attribute/name"):
 					value = "Month"
 				case strings.HasSuffix(r.URL.Path, "/rect"):
-					value = map[string]int{"x": 20, "y": 100, "width": 120, "height": 200}
+					value = map[string]float64{"x": 20.5, "y": 100, "width": 120.25, "height": 200}
 				case strings.HasSuffix(r.URL.Path, "/value"):
 					var body map[string]string
 					json.NewDecoder(r.Body).Decode(&body)
