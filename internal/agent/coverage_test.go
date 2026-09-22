@@ -10,7 +10,7 @@ import (
 
 func TestCoverageSeparatesObservedAttemptedAndVerified(t *testing.T) {
 	action := page.Action{Node: "field", Kind: "fill", Label: "Name"}
-	p := page.WithFingerprint(page.Page{URL: "https://example.test/", Actions: []page.Action{action}})
+	p := page.WithFingerprint(page.Page{URL: "https://example.test/", PageKey: []any{1}, Actions: []page.Action{action}})
 	a := &Agent{State: State{Page: p, Status: "ready"}}
 	path := filepath.Join(t.TempDir(), "coverage.json")
 	if err := a.EnableCoverage(path, []string{"https://example.test/unvisited"}); err != nil {
@@ -44,5 +44,22 @@ func TestCoverageSeparatesObservedAttemptedAndVerified(t *testing.T) {
 	got = a.Coverage.Pages[p.URL].Controls[controlKey(action)]
 	if got.ObservedResults != 1 || got.Changed != 1 || got.Verified != 1 {
 		t.Fatalf("verified result = %+v", got)
+	}
+}
+
+func TestCoverageDoesNotVerifyReusedNodeAfterNavigation(t *testing.T) {
+	action := page.Action{Node: 1, Kind: "fill", Label: "Name"}
+	before := page.WithFingerprint(page.Page{URL: "https://example.test", PageKey: []any{1}, Actions: []page.Action{action}})
+	text := "Ada"
+	for _, next := range []page.Page{
+		{URL: before.URL, PageKey: []any{2}, Actions: []page.Action{{Node: 1, Kind: "fill", Label: "Name", Value: text}}},
+		{URL: "https://other.test", PageKey: []any{1}, Actions: []page.Action{{Node: 1, Kind: "fill", Label: "Name", Value: text}}},
+	} {
+		c := Coverage{}
+		c.Attempt(before, action)
+		c.Result(before, action, page.WithFingerprint(next), &text)
+		if c.Pages[before.URL].Controls[controlKey(action)].Verified != 0 {
+			t.Fatal("navigation counted as verified target effect")
+		}
 	}
 }

@@ -72,6 +72,9 @@ func run(args []string) error {
 	if *mode != "appium" && *visualOCR {
 		return fmt.Errorf("--visual-ocr requires appium mode")
 	}
+	if len(expectedURLs) > 0 && *coveragePath == "" {
+		return fmt.Errorf("--audit-url requires --coverage")
+	}
 	if _, err := env.Require("TYPESAFE_API_KEY", "to call TypeSafe Jev"); err != nil {
 		return err
 	}
@@ -141,8 +144,6 @@ func run(args []string) error {
 		if err := a.EnableCoverage(*coveragePath, expectedURLs); err != nil {
 			return err
 		}
-	} else if len(expectedURLs) > 0 {
-		return fmt.Errorf("--audit-url requires --coverage")
 	}
 	if *interactive {
 		err = tui.Run(a)

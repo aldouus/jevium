@@ -70,7 +70,7 @@ func (c *Coverage) Result(before page.Page, a page.Action, after page.Page, text
 		matches++
 		verified = a.Kind == "fill" && text != nil && next.Value == *text || a.Kind == "click" && a.Checked != "" && next.Checked != "" && a.Checked != next.Checked
 	}
-	if matches == 1 && verified {
+	if matches == 1 && verified && sameDocument(before, after) {
 		entry.Verified++
 	}
 	c.Observe(after)
