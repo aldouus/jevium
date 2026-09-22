@@ -93,7 +93,7 @@ func TestFieldFocusKeepsUUIDAcrossReflowAndDuplicateLabels(t *testing.T) {
   <XCUIElementTypeTextField name="Name" value="first" x="10.5" y="20" width="200.25" height="30"/>
   <XCUIElementTypeTextField name="Name" value="second" x="10.5" y="80" width="200.25" height="30"/>
 </AppiumAUT>`
-	for _, active := range []string{"second", "first"} {
+	for _, active := range []string{"second", "first", "after-clear"} {
 		t.Run(active, func(t *testing.T) {
 			focused := false
 			clears, types := 0, 0
@@ -120,7 +120,14 @@ func TestFieldFocusKeepsUUIDAcrossReflowAndDuplicateLabels(t *testing.T) {
 				case strings.HasSuffix(r.URL.Path, "/execute/sync"):
 					focused = true
 				case strings.HasSuffix(r.URL.Path, "/element/active"):
-					value = map[string]string{"element-6066-11e4-a52e-4f735466cecf": active}
+					focused := active
+					if active == "after-clear" {
+						focused = "second"
+						if clears > 0 {
+							focused = "first"
+						}
+					}
+					value = map[string]string{"element-6066-11e4-a52e-4f735466cecf": focused}
 				case strings.HasSuffix(r.URL.Path, "/clear"):
 					clears++
 				case strings.HasSuffix(r.URL.Path, "/actions"):
@@ -153,7 +160,11 @@ func TestFieldFocusKeepsUUIDAcrossReflowAndDuplicateLabels(t *testing.T) {
 					t.Fatalf("err=%v clear=%d type=%d", err, clears, types)
 				}
 			} else {
-				if err == nil || clears != 0 || types != 0 {
+				wantClear := 0
+				if active == "after-clear" {
+					wantClear = 1
+				}
+				if err == nil || clears != wantClear || types != 0 {
 					t.Fatalf("redirected focus err=%v clear=%d type=%d", err, clears, types)
 				}
 			}

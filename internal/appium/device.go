@@ -323,6 +323,9 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		if err := d.call(http.MethodPost, d.path("/element/"+id+"/clear"), struct{}{}, nil); err != nil {
 			return err
 		}
+		if err := d.requireActive(id); err != nil {
+			return err
+		}
 		return d.typeText(*text)
 	case "select":
 		return UnsupportedError{Msg: "XCUITest picker select is unsupported without an element UUID"}
@@ -349,14 +352,21 @@ func (d *Device) focusField(action page.Action) (string, error) {
 	if err := d.click(action); err != nil {
 		return "", err
 	}
-	var element map[string]string
-	if err := d.call(http.MethodGet, d.path("/element/active"), nil, &element); err != nil {
-		return "", DeviceError{Msg: "Could not verify focused field; not retrying"}
-	}
-	if element["element-6066-11e4-a52e-4f735466cecf"] != id {
-		return "", DeviceError{Msg: "Focused field does not match resolved target; not retrying"}
+	if err := d.requireActive(id); err != nil {
+		return "", err
 	}
 	return id, nil
+}
+
+func (d *Device) requireActive(id string) error {
+	var element map[string]string
+	if err := d.call(http.MethodGet, d.path("/element/active"), nil, &element); err != nil {
+		return DeviceError{Msg: "Could not verify focused field; not retrying"}
+	}
+	if element["element-6066-11e4-a52e-4f735466cecf"] != id {
+		return DeviceError{Msg: "Focused field does not match resolved target; not retrying"}
+	}
+	return nil
 }
 
 func (d *Device) typeText(text string) error {
