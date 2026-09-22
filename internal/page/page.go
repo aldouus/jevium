@@ -40,6 +40,7 @@ type Action struct {
 }
 
 type Page struct {
+	Controls       []Control      `json:"controls,omitempty"`
 	URL            string         `json:"url"`
 	Title          string         `json:"title"`
 	Text           string         `json:"text"`
@@ -55,6 +56,16 @@ type Page struct {
 	Marker         any            `json:"marker,omitempty"`
 	PageKey        any            `json:"page_key,omitempty"`
 	Guards         map[string]any `json:"guards,omitempty"`
+}
+
+// Control is visible state, independently of whether another action is available.
+type Control struct {
+	Node     any     `json:"node"`
+	Label    string  `json:"label"`
+	Value    *string `json:"value,omitempty"`
+	Checked  string  `json:"checked,omitempty"`
+	Expanded string  `json:"expanded,omitempty"`
+	Selected any     `json:"selected,omitempty"`
 }
 
 func Fingerprint(p Page) string {
@@ -76,10 +87,11 @@ func Fingerprint(p Page) string {
 		Direction    string  `json:"direction,omitempty"`
 	}
 	type payload struct {
-		URL     string `json:"url"`
-		Text    string `json:"text"`
-		Actions []slim `json:"actions"`
-		Scroll  Scroll `json:"scroll"`
+		Controls []Control `json:"controls,omitempty"`
+		URL      string    `json:"url"`
+		Text     string    `json:"text"`
+		Actions  []slim    `json:"actions"`
+		Scroll   Scroll    `json:"scroll"`
 	}
 	actions := make([]slim, 0, len(p.Actions))
 	for _, a := range p.Actions {
@@ -93,7 +105,8 @@ func Fingerprint(p Page) string {
 		})
 	}
 	raw, err := json.Marshal(payload{
-		URL: p.URL, Text: p.Text, Actions: actions, Scroll: p.Scroll,
+		Controls: p.Controls,
+		URL:      p.URL, Text: p.Text, Actions: actions, Scroll: p.Scroll,
 	})
 	if err != nil {
 		return ""

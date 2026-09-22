@@ -10,15 +10,15 @@ func TestCompletionRequiresEveryObservedCondition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := page.Page{Text: "Saved", Actions: []page.Action{{Node: "toggle", Label: "Enabled", Checked: "false"}}}
+	p := page.Page{Text: "Saved", Controls: []page.Control{{Node: "toggle", Label: "Enabled", Checked: "false"}}}
 	if ExpectationsMatch(es, p) {
 		t.Fatal("unchecked control satisfied completion")
 	}
-	p.Actions[0].Checked = "true"
+	p.Controls[0].Checked = "true"
 	if !ExpectationsMatch(es, p) {
 		t.Fatal("all observed conditions should match")
 	}
-	p.Actions = append(p.Actions, page.Action{Node: "other", Label: "Enabled", Checked: "true"})
+	p.Controls = append(p.Controls, page.Control{Node: "other", Label: "Enabled", Checked: "true"})
 	if ExpectationsMatch(es, p) {
 		t.Fatal("ambiguous label satisfied completion")
 	}
@@ -46,16 +46,18 @@ func TestRejectInvalidExpectations(t *testing.T) {
 
 func TestValueExpectationUsesCurrentControlValue(t *testing.T) {
 	es := []Expectation{{Field: "value", Label: "Country", Value: "ca"}}
-	p := page.Page{Actions: []page.Action{{Node: "country", Kind: "select", Label: "Country → Canada", Value: "ca", CurrentValue: "fr"}}}
+	value := "fr"
+	p := page.Page{Controls: []page.Control{{Node: "country", Label: "Country", Value: &value}}, Actions: []page.Action{{Node: "country", Kind: "select", Label: "Country → Canada", Value: "ca", CurrentValue: "fr"}}}
 	if ExpectationsMatch(es, p) {
 		t.Fatal("offered option mistaken for current value")
 	}
-	p.Actions[0].CurrentValue = "ca"
+	value = "ca"
+	p.Actions = nil
 	if !ExpectationsMatch(es, p) {
 		t.Fatal("current select value did not match")
 	}
 	es = []Expectation{{Field: "value", Label: "Search", Value: ""}}
-	p.Actions = []page.Action{{Node: "search", Kind: "click", Label: "Search"}}
+	p.Controls = []page.Control{{Node: "search", Label: "Search"}}
 	if ExpectationsMatch(es, p) {
 		t.Fatal("button mistaken for empty editable field")
 	}
@@ -64,13 +66,13 @@ func TestValueExpectationUsesCurrentControlValue(t *testing.T) {
 func TestSelectedExpectationAcceptsObservedARIABoolean(t *testing.T) {
 	es := []Expectation{{Field: "selected", Label: "Details", Value: "true"}}
 	for _, value := range []any{true, "true"} {
-		p := page.Page{Actions: []page.Action{{Kind: "click", Node: 7, Label: "Details", Selected: value}}}
+		p := page.Page{Controls: []page.Control{{Node: 7, Label: "Details", Selected: value}}}
 		if !ExpectationsMatch(es, p) {
 			t.Fatalf("observed selected=%v should match", value)
 		}
 	}
 	for _, value := range []any{false, "false", "", nil, "mixed"} {
-		p := page.Page{Actions: []page.Action{{Kind: "click", Node: 7, Label: "Details", Selected: value}}}
+		p := page.Page{Controls: []page.Control{{Node: 7, Label: "Details", Selected: value}}}
 		if ExpectationsMatch(es, p) {
 			t.Fatalf("selected=%v falsely matched", value)
 		}

@@ -174,6 +174,7 @@ func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool
 	})
 	actions := []page.Action{}
 	fullyVisible := map[any]bool{}
+	controls := []page.Control{}
 	words := []string{}
 	var scrolls []page.Action
 	var webBounds []page.Rect
@@ -241,6 +242,27 @@ func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool
 					}
 					if base.Role == "" {
 						base.Role = "button"
+					}
+					control := page.Control{Node: nodeID, Label: label, Expanded: n.attr("expanded")}
+					if has(fillTypes, kind) || has(selectTypes, kind) {
+						for _, attr := range n.Attrs {
+							if attr.Name.Local == "value" {
+								value := attr.Value
+								control.Value = &value
+								break
+							}
+						}
+					}
+					if has(toggleTypes, kind) {
+						switch strings.ToLower(n.attr("value")) {
+						case "1", "true":
+							control.Checked = "true"
+						case "0", "false":
+							control.Checked = "false"
+						}
+					}
+					if kind != "XCUIElementTypeSecureTextField" {
+						controls = append(controls, control)
 					}
 					switch {
 					case kind == "XCUIElementTypeSlider":
@@ -395,6 +417,7 @@ func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool
 		height, width = window.H, window.W
 	}
 	p := page.Page{
+		Controls:       controls,
 		URL:            "app://" + appBundle,
 		Title:          appName,
 		Text:           text,

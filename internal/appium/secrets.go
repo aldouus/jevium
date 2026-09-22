@@ -58,6 +58,21 @@ func (d *Device) secretSnapshot(source, bundle string) (page.Page, error) {
 		actions = append(actions, a)
 	}
 	p.Actions = actions
+	for i := range p.Controls {
+		control := &p.Controls[i]
+		control.Label = redact(control.Label)
+		if control.Value != nil {
+			value := redact(*control.Value)
+			control.Value = &value
+		}
+		if node, ok := control.Node.(string); ok {
+			control.Node = redact(node)
+		}
+		control.Expanded = redact(control.Expanded)
+		if selected, ok := control.Selected.(string); ok {
+			control.Selected = redact(selected)
+		}
+	}
 	p.Text = redact(p.Text)
 	p.Title = redact(p.Title)
 	p.URL = redact(p.URL)
