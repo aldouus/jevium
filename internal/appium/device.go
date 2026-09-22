@@ -264,9 +264,9 @@ func matchingAction(p page.Page, action page.Action) (page.Action, bool) {
 	return page.Action{}, false
 }
 
-func fieldByLabel(p page.Page, label string) (page.Action, bool) {
+func fieldByNode(p page.Page, node any) (page.Action, bool) {
 	for _, a := range p.Actions {
-		if a.Kind == "fill" && a.Label == label {
+		if a.Kind == "fill" && a.Node == node {
 			return a, true
 		}
 	}
@@ -292,7 +292,15 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		if err := d.click(action); err != nil {
 			return err
 		}
-		return d.clearActiveField(action)
+		current, err := d.Observe(false)
+		if err != nil {
+			return err
+		}
+		field, ok := fieldByNode(current, action.Node)
+		if !ok {
+			return DeviceError{Msg: "Target field changed after focus; not retrying"}
+		}
+		return d.clearActiveField(field)
 	case "wait":
 		time.Sleep(100 * time.Millisecond)
 		return nil
@@ -331,11 +339,11 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		if err != nil {
 			return err
 		}
-		field, ok := fieldByLabel(current, action.Label)
+		field, ok := fieldByNode(current, action.Node)
 		if !ok {
 			return fmt.Errorf("field %q is gone after tap; not retrying", action.Label)
 		}
-		if action.Value != "" {
+		if field.Value != "" {
 			if err := d.clearActiveField(field); err != nil {
 				return err
 			}
