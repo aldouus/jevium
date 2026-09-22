@@ -228,6 +228,11 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 						open.Label = "Open " + label
 						actions = append(actions, open)
 					case has(selectTypes, kind):
+						for _, kind := range []string{"picker_next", "picker_previous"} {
+							step := base
+							step.Kind = kind
+							actions = append(actions, step)
+						}
 						current := n.attr("value")
 						raw := n.attr("values", "availableValues")
 						if raw != "" {

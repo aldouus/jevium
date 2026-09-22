@@ -153,7 +153,9 @@ func ValidateChoice(answer ChoiceAnswer, ids map[string]struct{}) error {
 }
 
 var kindOps = map[string]string{
-	"key_select_all": "SELECT_ALL", "key_select_left": "SELECT_LEFT", "key_select_right": "SELECT_RIGHT",
+	"picker_next":     "PICKER_NEXT",
+	"picker_previous": "PICKER_PREVIOUS",
+	"key_select_all":  "SELECT_ALL", "key_select_left": "SELECT_LEFT", "key_select_right": "SELECT_RIGHT",
 	"clear_text":    "CLEAR_TEXT",
 	"key_backspace": "BACKSPACE",
 	"key_left":      "CURSOR_LEFT",
@@ -239,17 +241,19 @@ func (c Client) Choose(state page.Page, goal string, history []History) (Decisio
 	}
 	elements, targets, controls := ActionSpace(state.Actions)
 	labels := map[string]string{
-		"SELECT_ALL":   "Select all text in the focused field using Command+A.",
-		"SELECT_LEFT":  "Extend the focused text selection one character left using Shift+Left.",
-		"SELECT_RIGHT": "Extend the focused text selection one character right using Shift+Right.",
-		"CLEAR_TEXT":   "Clear all text in the observed field.",
-		"BACKSPACE":    "Delete one character before the focused cursor.",
-		"CURSOR_LEFT":  "Move the focused cursor one character left.",
-		"CURSOR_RIGHT": "Move the focused cursor one character right.",
-		"RETURN":       "Press Return in the focused field; this may submit the form.",
-		"CLICK":        "Click an element, button, menu option, autocomplete suggestion, or calendar day.",
-		"TYPE_TEXT":    "Enter or replace text in an editable field. A small LLM will supply the value from the goal.",
-		"SELECT":       "Select an observed dropdown value.",
+		"PICKER_NEXT":     "Move the observed picker wheel to its next value.",
+		"PICKER_PREVIOUS": "Move the observed picker wheel to its previous value.",
+		"SELECT_ALL":      "Select all text in the focused field using Command+A.",
+		"SELECT_LEFT":     "Extend the focused text selection one character left using Shift+Left.",
+		"SELECT_RIGHT":    "Extend the focused text selection one character right using Shift+Right.",
+		"CLEAR_TEXT":      "Clear all text in the observed field.",
+		"BACKSPACE":       "Delete one character before the focused cursor.",
+		"CURSOR_LEFT":     "Move the focused cursor one character left.",
+		"CURSOR_RIGHT":    "Move the focused cursor one character right.",
+		"RETURN":          "Press Return in the focused field; this may submit the form.",
+		"CLICK":           "Click an element, button, menu option, autocomplete suggestion, or calendar day.",
+		"TYPE_TEXT":       "Enter or replace text in an editable field. A small LLM will supply the value from the goal.",
+		"SELECT":          "Select an observed dropdown value.",
 	}
 	operations := map[string]any{}
 	for key := range targets {

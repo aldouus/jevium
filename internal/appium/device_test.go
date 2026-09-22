@@ -470,7 +470,7 @@ func TestFillTypesAfterKeyboardShiftsSameField(t *testing.T) {
 	}
 }
 
-func TestSelectIsUnsupported(t *testing.T) {
+func TestSelectRefusesUnresolvedElement(t *testing.T) {
 	const pickerXML = `<?xml version="1.0"?><AppiumAUT>
       <XCUIElementTypeApplication name="Safari" bundleId="com.apple.mobilesafari" visible="true">
         <XCUIElementTypePickerWheel name="Month" label="Month" value="September" enabled="true"
@@ -478,7 +478,7 @@ func TestSelectIsUnsupported(t *testing.T) {
           values="January,February,March"/>
       </XCUIElementTypeApplication></AppiumAUT>`
 	srv, calls := mockAppium(t, pickerXML, func(r *recorded) any {
-		if strings.Contains(r.Path, "/element") {
+		if strings.Contains(r.Path, "/element/") {
 			t.Fatalf("element-id path %s", r.Path)
 		}
 		return nil
@@ -503,14 +503,14 @@ func TestSelectIsUnsupported(t *testing.T) {
 	}
 	err = d.Act(sel, p, nil)
 	if err == nil {
-		t.Fatal("expected unsupported")
+		t.Fatal("expected unresolved target")
 	}
-	var ue appium.UnsupportedError
+	var ue appium.StalePageError
 	if !errors.As(err, &ue) {
-		t.Fatalf("want UnsupportedError got %T %v", err, err)
+		t.Fatalf("want StalePageError got %T %v", err, err)
 	}
 	for _, c := range *calls {
-		if strings.Contains(c.Path, "/element") {
+		if strings.Contains(c.Path, "/element/") {
 			t.Fatalf("select used element-id path %s", c.Path)
 		}
 	}

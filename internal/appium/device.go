@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -347,7 +348,21 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		}
 		return d.typeText(*text)
 	case "select":
-		return UnsupportedError{Msg: "XCUITest picker select is unsupported without an element UUID"}
+		id, err := d.resolveElement(action)
+		if err != nil {
+			return err
+		}
+		return d.call(http.MethodPost, d.path("/element/"+url.PathEscape(id)+"/value"), map[string]string{"text": action.Value}, nil)
+	case "picker_next", "picker_previous":
+		id, err := d.resolveElement(action)
+		if err != nil {
+			return err
+		}
+		order := "next"
+		if action.Kind == "picker_previous" {
+			order = "previous"
+		}
+		return d.execute("mobile: selectPickerWheelValue", []map[string]any{{"elementId": id, "order": order, "offset": 0.15}})
 	case "click":
 		return d.click(action)
 	default:
