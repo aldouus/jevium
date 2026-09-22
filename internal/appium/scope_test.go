@@ -34,8 +34,35 @@ func TestWebViewScopeDoesNotLeakToToolbar(t *testing.T) {
 				count++
 			}
 		}
-		if count != 2 {
+		want := 2
+		if scope == "native" {
+			want = 0
+		}
+		if count != want {
 			t.Fatalf("%s scroll count=%d", scope, count)
 		}
+	}
+}
+
+func TestNativeScrollUsesOnlyExposedPartOfWebWrapper(t *testing.T) {
+	source := `<AppiumAUT><XCUIElementTypeWindow width="400" height="800">
+ <XCUIElementTypeScrollView width="400" height="800">
+  <XCUIElementTypeWebView x="100" y="0" width="300" height="800"/>
+ </XCUIElementTypeScrollView></XCUIElementTypeWindow></AppiumAUT>`
+	p, err := appium.SnapshotFromSource(source, "app", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	for _, a := range p.Actions {
+		if a.Kind == "scroll" && a.Scope == "native" {
+			count++
+			if a.Rect == nil || a.Rect.X != 0 || a.Rect.W != 100 || a.Rect.H != 800 {
+				t.Fatalf("native gesture overlaps web content: %+v", a.Rect)
+			}
+		}
+	}
+	if count != 2 {
+		t.Fatalf("native scroll count=%d", count)
 	}
 }

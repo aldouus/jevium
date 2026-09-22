@@ -176,6 +176,7 @@ func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool
 	fullyVisible := map[any]bool{}
 	words := []string{}
 	var scrolls []page.Action
+	var webBounds []page.Rect
 	nextID := 1
 	identity := map[*node]string{}
 	var assign func(*node) string
@@ -206,6 +207,9 @@ func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool
 		if (scrollContainer(kind) || kind == "XCUIElementTypeWindow") && r.W > 0 && r.H > 0 {
 			bounds := intersect(r, clip)
 			clip = &bounds
+			if kind == "XCUIElementTypeWebView" && n.visible() && bounds.W > 0 && bounds.H > 0 {
+				webBounds = append(webBounds, bounds)
+			}
 			if scrollContainer(kind) && n.visible() && n.boolAttr("hittable", true) && bounds.W > 0 && bounds.H > 0 {
 				scrolls = append(scrolls, page.Action{Scope: scope, Node: kind + ":" + n.attr("name") + ":" + strconv.Itoa(len(scrolls)+1), Label: n.label(), Role: "scrollarea", Rect: &bounds})
 			}
@@ -326,6 +330,15 @@ func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool
 	if !hasAlert {
 		for i, area := range scrolls {
 			regions := []page.Rect{*area.Rect}
+			if area.Scope == "native" {
+				for _, web := range webBounds {
+					var remaining []page.Rect
+					for _, region := range regions {
+						remaining = append(remaining, outsideRect(region, web)...)
+					}
+					regions = remaining
+				}
+			}
 			for j, child := range scrolls {
 				if j > i && containsRect(*area.Rect, *child.Rect) {
 					var remaining []page.Rect
