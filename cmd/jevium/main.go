@@ -11,6 +11,7 @@ import (
 	"github.com/aldous/jevium/internal/appium"
 	"github.com/aldous/jevium/internal/chrome"
 	"github.com/aldous/jevium/internal/env"
+	"github.com/aldous/jevium/internal/page"
 	"github.com/aldous/jevium/internal/policy"
 	"github.com/aldous/jevium/internal/rlimit"
 	"github.com/aldous/jevium/internal/tui"
@@ -53,6 +54,8 @@ func run(args []string) error {
 	var retrievals goalList
 	fs.Var(&retrievals, "retrieve", "retrieve @bundle.id:documents/filename=LOCAL after the run (repeatable; never overwrites local files)")
 	fs.Var(&fixtures, "fixture", "provision LOCAL=@bundle.id:documents/filename before the goal (repeatable; overwrites destination)")
+	var expectations goalList
+	fs.Var(&expectations, "expect", "completion condition JSON {field,label,value}; repeat for conjunction")
 	fs.Var(&goals, "goal", "natural-language goal (repeatable)")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -75,6 +78,10 @@ func run(args []string) error {
 	if len(expectedURLs) > 0 && *coveragePath == "" {
 		return fmt.Errorf("--audit-url requires --coverage")
 	}
+	conditions, err := agent.ParseExpectations(expectations)
+	if err != nil {
+		return err
+	}
 	if _, err := env.Require("TYPESAFE_API_KEY", "to call TypeSafe Jev"); err != nil {
 		return err
 	}
@@ -91,7 +98,6 @@ func run(args []string) error {
 	chooser := policy.Client{Scope: *scope}
 	var surface agent.Surface
 	var device *appium.Device
-	var err error
 	switch *mode {
 	case "appium":
 		var recognizer visual.Recognizer
@@ -144,6 +150,9 @@ func run(args []string) error {
 		if err := a.EnableCoverage(*coveragePath, expectedURLs); err != nil {
 			return err
 		}
+	}
+	if len(conditions) > 0 {
+		a.VerifyDone = func(_ string, p page.Page) bool { return agent.ExpectationsMatch(conditions, p) }
 	}
 	if *interactive {
 		err = tui.Run(a)

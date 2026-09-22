@@ -227,7 +227,7 @@ func TestGoalVisibleUsesStopClauseNotTypedQuote(t *testing.T) {
 	if agent.GoalVisible(goal, typed) {
 		t.Fatal("typed quote or start URL must not count as the goal")
 	}
-	results := page.Page{Text: "About 1,840,000 results (0.42 seconds)", Title: "hello world - Google Search"}
+	results := page.Page{Text: "Search results: About 1,840,000 results (0.42 seconds)", Title: "hello world - Google Search"}
 	if !agent.GoalVisible(goal, results) {
 		t.Fatal("stop clause missed visible search results")
 	}

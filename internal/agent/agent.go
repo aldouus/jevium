@@ -129,18 +129,7 @@ func GoalVisible(goal string, p page.Page) bool {
 	if needle == "" {
 		return false
 	}
-	if strings.Contains(hay, needle) {
-		return true
-	}
-	parts := strings.Fields(needle)
-	if len(parts) == 0 {
-		return false
-	}
-	last := parts[len(parts)-1]
-	if last == "results" && strings.Contains(hay, "result") {
-		return true
-	}
-	return strings.Contains(hay, last) && len(last) >= 4
+	return strings.Contains(hay, needle)
 }
 
 func stopWhenNeedle(goal string) string {
