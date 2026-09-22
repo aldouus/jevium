@@ -38,6 +38,8 @@ func (e UnsupportedError) Error() string { return e.Msg }
 
 type Config struct {
 	SecretFields       map[string]string
+	StartURL           string
+	AllowedApps        []string
 	URL                string
 	UDID               string
 	BundleID           string
@@ -69,6 +71,9 @@ func New(cfg Config) (*Device, error) {
 		if label == "" || ref == "" || os.Getenv(ref) == "" {
 			return nil, fmt.Errorf("secret field configuration references a missing environment value")
 		}
+	}
+	if err := validateNavigation(cfg); err != nil {
+		return nil, err
 	}
 	if cfg.URL == "" {
 		cfg.URL = env.Get("APPIUM_URL", "http://127.0.0.1:4723")
@@ -116,12 +121,19 @@ func New(cfg Config) (*Device, error) {
 		if err := d.enableHitTesting(); err != nil {
 			return nil, err
 		}
+		if err := d.openStartURL(); err != nil {
+			return nil, err
+		}
 		return d, nil
 	}
 	if err := d.createSession(); err != nil {
 		return nil, err
 	}
 	if err := d.enableHitTesting(); err != nil {
+		_ = d.Close()
+		return nil, err
+	}
+	if err := d.openStartURL(); err != nil {
 		_ = d.Close()
 		return nil, err
 	}
@@ -372,6 +384,15 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 			return DeviceError{Msg: "Secret entry failed; not retrying"}
 		}
 		return nil
+	case "activate_app", "terminate_app":
+		observed, ok := page.FindAction(p.Actions, action.ID)
+		if !ok || observed.Kind != action.Kind || observed.Value != action.Value || !d.allowedApp(action.Value) {
+			return UnsupportedError{Msg: "App is not configured for navigation"}
+		}
+		if action.Kind == "activate_app" {
+			return d.activate(action.Value)
+		}
+		return d.execute("mobile: terminateApp", []bundleArg{{BundleID: action.Value}})
 	case "wait":
 		time.Sleep(100 * time.Millisecond)
 		return nil

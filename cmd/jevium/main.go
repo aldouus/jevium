@@ -33,7 +33,9 @@ func run(args []string) error {
 	bundle := fs.String("bundle-id", env.Get("APPIUM_BUNDLE_ID", "com.apple.springboard"), "iOS bundle id")
 	session := fs.String("session-id", os.Getenv("APPIUM_SESSION_ID"), "reuse an existing Appium session")
 	appiumURL := fs.String("appium-url", env.Get("APPIUM_URL", "http://127.0.0.1:4723"), "Appium server URL")
-	startURL := fs.String("url", "", "page URL for chrome mode")
+	startURL := fs.String("url", "", "HTTP(S) page URL to open before the goal")
+	var allowedApps goalList
+	fs.Var(&allowedApps, "allow-app", "bundle id permitted for launch, switch, and terminate (repeatable)")
 	wda := fs.Int("wda-local-port", env.Atoi("APPIUM_WDA_LOCAL_PORT", 8101), "WDA local port")
 	record := fs.String("record-dir", "", "optional screenshot directory")
 	screenshots := fs.Bool("screenshots", false, "capture screenshots (not sent to Jev)")
@@ -59,6 +61,7 @@ func run(args []string) error {
 	switch *mode {
 	case "appium":
 		surface, err = appium.New(appium.Config{
+			StartURL: *startURL, AllowedApps: allowedApps,
 			URL: *appiumURL, UDID: *udid, BundleID: *bundle, SessionID: *session, WDALocalPort: *wda,
 		})
 	case "chrome":
@@ -97,5 +100,3 @@ func (g *goalList) Set(v string) error {
 	*g = append(*g, v)
 	return nil
 }
-
-

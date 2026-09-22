@@ -8,7 +8,7 @@ import (
 )
 
 func (d *Device) snapshot(src string) (page.Page, error) {
-	p, err := d.secretSnapshot(src)
+	p, err := d.navigationSnapshot(src)
 	if err != nil {
 		return p, err
 	}
