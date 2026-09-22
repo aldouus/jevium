@@ -76,3 +76,26 @@ func TestRejectUnsafeFixtureBeforeOpeningFile(t *testing.T) {
 		}
 	}
 }
+
+func TestFixtureVerificationMismatchDoesNotRepush(t *testing.T) {
+	pushes := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var value any
+		if strings.HasSuffix(r.URL.Path, "/push_file") {
+			pushes++
+		}
+		if strings.HasSuffix(r.URL.Path, "/pull_file") {
+			value = base64.StdEncoding.EncodeToString([]byte("wrong bytes"))
+		}
+		json.NewEncoder(w).Encode(map[string]any{"value": value})
+	}))
+	defer srv.Close()
+	d := Device{cfg: Config{URL: srv.URL}, sessionID: "session", http: srv.Client()}
+	err := d.provision([]loadedFixture{{Fixture: Fixture{RemotePath: "@com.example.files:documents/file"}, data: []byte("expected bytes")}})
+	if err == nil || err.Error() != "fixture pushed but device bytes did not match local fixture" {
+		t.Fatalf("error=%v", err)
+	}
+	if pushes != 1 {
+		t.Fatalf("push count=%d", pushes)
+	}
+}

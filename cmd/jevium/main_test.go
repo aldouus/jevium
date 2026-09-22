@@ -19,6 +19,13 @@ func TestRejectDeviceControlsInChrome(t *testing.T) {
 	}
 }
 
+func TestRejectFixtureInChrome(t *testing.T) {
+	err := run([]string{"--mode", "chrome", "--fixture=sample.pdf=@com.example.files:documents/sample.pdf"})
+	if err == nil || err.Error() != "--fixture requires appium mode" {
+		t.Fatalf("error=%v", err)
+	}
+}
+
 func TestRunAppiumMissingUDID(t *testing.T) {
 	t.Setenv("TYPESAFE_API_KEY", "test")
 	t.Setenv("APPIUM_UDID", "")
