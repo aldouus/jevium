@@ -42,6 +42,8 @@ func run(args []string) error {
 	screenshots := fs.Bool("screenshots", false, "capture screenshots (not sent to Jev)")
 	interactive := fs.Bool("tui", false, "Bubble Tea inspector")
 	var goals goalList
+	var fixtures goalList
+	fs.Var(&fixtures, "fixture", "provision LOCAL=@bundle.id:documents/filename before the goal (repeatable; overwrites destination)")
 	fs.Var(&goals, "goal", "natural-language goal (repeatable)")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -67,10 +69,19 @@ func run(args []string) error {
 	var err error
 	switch *mode {
 	case "appium":
+		var configured []appium.Fixture
+		for _, value := range fixtures {
+			f, e := appium.ParseFixture(value)
+			if e != nil {
+				return e
+			}
+			configured = append(configured, f)
+		}
 		surface, err = appium.New(appium.Config{
 			StartURL: *startURL, AllowedApps: allowedApps,
 			DeviceControls: *deviceControls,
 			URL:            *appiumURL, UDID: *udid, BundleID: *bundle, SessionID: *session, WDALocalPort: *wda,
+			Fixtures: configured,
 		})
 	case "chrome":
 		if *startURL == "" {

@@ -41,6 +41,7 @@ type Config struct {
 	StartURL           string
 	AllowedApps        []string
 	DeviceControls     bool
+	Fixtures           []Fixture
 	URL                string
 	UDID               string
 	BundleID           string
@@ -74,6 +75,10 @@ func New(cfg Config) (*Device, error) {
 		}
 	}
 	if err := validateNavigation(cfg); err != nil {
+		return nil, err
+	}
+	fixtures, err := loadFixtures(cfg.Fixtures)
+	if err != nil {
 		return nil, err
 	}
 	if cfg.URL == "" {
@@ -122,6 +127,9 @@ func New(cfg Config) (*Device, error) {
 		if err := d.enableHitTesting(); err != nil {
 			return nil, err
 		}
+		if err := d.provision(fixtures); err != nil {
+			return nil, err
+		}
 		if err := d.openStartURL(); err != nil {
 			return nil, err
 		}
@@ -131,6 +139,10 @@ func New(cfg Config) (*Device, error) {
 		return nil, err
 	}
 	if err := d.enableHitTesting(); err != nil {
+		_ = d.Close()
+		return nil, err
+	}
+	if err := d.provision(fixtures); err != nil {
 		_ = d.Close()
 		return nil, err
 	}
