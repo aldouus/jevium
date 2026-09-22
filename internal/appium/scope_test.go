@@ -8,9 +8,11 @@ import (
 func TestWebViewScopeDoesNotLeakToToolbar(t *testing.T) {
 	source := `<AppiumAUT>
  <XCUIElementTypeWindow width="375" height="812">
+ <XCUIElementTypeScrollView width="375" height="700">
   <XCUIElementTypeWebView width="375" height="700">
    <XCUIElementTypeButton label="Site menu" width="60" height="40"/>
   </XCUIElementTypeWebView>
+ </XCUIElementTypeScrollView>
   <XCUIElementTypeButton label="Browser menu" y="720" width="60" height="40"/>
  </XCUIElementTypeWindow>
  </AppiumAUT>`
@@ -21,6 +23,9 @@ func TestWebViewScopeDoesNotLeakToToolbar(t *testing.T) {
 	scopes := map[string]string{}
 	for _, a := range p.Actions {
 		scopes[a.Label] = a.Scope
+		if a.Kind == "scroll" && a.Scope != "web" {
+			t.Fatalf("web scrolling misclassified: %+v", a)
+		}
 	}
 	if scopes["Site menu"] != "web" || scopes["Browser menu"] != "native" {
 		t.Fatalf("scopes = %v", scopes)
