@@ -188,9 +188,12 @@ func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool
 		identity[n] = id
 		return id
 	}
-	var visit func(*node, *page.Rect)
-	visit = func(n *node, clip *page.Rect) {
+	var visit func(*node, *page.Rect, string)
+	visit = func(n *node, clip *page.Rect, scope string) {
 		kind := n.local()
+		if kind == "XCUIElementTypeWebView" {
+			scope = "web"
+		}
 		if kind == "XCUIElementTypeSecureTextField" {
 			source = ""
 			for i := range n.Attrs {
@@ -204,7 +207,7 @@ func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool
 			bounds := intersect(r, clip)
 			clip = &bounds
 			if scrollContainer(kind) && n.visible() && n.boolAttr("hittable", true) && bounds.W > 0 && bounds.H > 0 {
-				scrolls = append(scrolls, page.Action{Node: kind + ":" + n.attr("name") + ":" + strconv.Itoa(len(scrolls)+1), Label: n.label(), Role: "scrollarea", Rect: &bounds})
+				scrolls = append(scrolls, page.Action{Scope: scope, Node: kind + ":" + n.attr("name") + ":" + strconv.Itoa(len(scrolls)+1), Label: n.label(), Role: "scrollarea", Rect: &bounds})
 			}
 		}
 		visiblePart := intersect(r, clip)
@@ -225,6 +228,7 @@ func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool
 					fullyVisible[nodeID] = r == visiblePart
 					rect := r
 					base := page.Action{
+						Scope: scope,
 						Node:  nodeID,
 						Role:  roles[kind],
 						Label: label,
@@ -303,10 +307,10 @@ func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool
 			}
 		}
 		for i := range n.Nodes {
-			visit(&n.Nodes[i], clip)
+			visit(&n.Nodes[i], clip, scope)
 		}
 	}
-	visit(&root, window)
+	visit(&root, window, "native")
 	actions, gestureOmitted := gestureActions(actions, fullyVisible)
 
 	omitted := gestureOmitted

@@ -22,6 +22,7 @@ type ChoiceAnswer struct {
 }
 
 type Element struct {
+	Scope      string          `json:"scope,omitempty"`
 	Index      string          `json:"index"`
 	Label      string          `json:"label"`
 	Role       string          `json:"role,omitempty"`
@@ -94,6 +95,7 @@ type TextCall struct {
 }
 
 type Client struct {
+	Scope       string
 	BaseURL     string
 	TextBaseURL string
 	HTTP        *http.Client
@@ -192,6 +194,7 @@ func ActionSpace(actions []page.Action) ([]Element, map[string]map[string]page.A
 			index = fmt.Sprintf("%d", len(elements)+1)
 			indices[nodeKey] = index
 			el := Element{
+				Scope:      action.Scope,
 				Index:      index,
 				Label:      strings.Split(action.Label, " → ")[0],
 				Role:       action.Role,
@@ -248,7 +251,8 @@ func (c Client) Choose(state page.Page, goal string, history []History) (Decisio
 	if err != nil {
 		return Decision{}, err
 	}
-	elements, targets, controls := ActionSpace(state.Actions)
+	actions := ScopedActions(state, c.Scope)
+	elements, targets, controls := ActionSpace(actions)
 	labels := map[string]string{
 		"TYPE_SECRET": "Enter the configured secret into this observed password field without generating text.",
 		"SCROLL_DOWN": "Scroll the selected observed container to reveal content below.",
@@ -288,6 +292,7 @@ func (c Client) Choose(state page.Page, goal string, history []History) (Decisio
 		criteria := map[string]any{}
 		for index, a := range candidates {
 			item := map[string]any{
+				"scope":         a.Scope,
 				"element":       fmt.Sprintf("[%s] %s", index, a.Label),
 				"current_value": firstNonEmpty(a.CurrentValue, a.Value),
 			}

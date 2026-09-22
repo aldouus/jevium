@@ -44,6 +44,7 @@ func run(args []string) error {
 	screenshots := fs.Bool("screenshots", false, "capture screenshots (not sent to Jev)")
 	visualOCR := fs.Bool("visual-ocr", false, "enable local macOS Vision text targets (screenshots stay local)")
 	interactive := fs.Bool("tui", false, "Bubble Tea inspector")
+	scope := fs.String("scope", "all", "allowed controls: all, web, or native")
 	var goals goalList
 	var fixtures goalList
 	var retrievals goalList
@@ -78,7 +79,10 @@ func run(args []string) error {
 	if *mode == "appium" && strings.TrimSpace(*udid) == "" {
 		return fmt.Errorf("APPIUM_UDID is required for appium mode. Export it in the shell, set it in .env, or pass --udid")
 	}
-	chooser := policy.Client{}
+	if *scope != "all" && *scope != "web" && *scope != "native" {
+		return fmt.Errorf("invalid scope %q: use all, web, or native", *scope)
+	}
+	chooser := policy.Client{Scope: *scope}
 	var surface agent.Surface
 	var device *appium.Device
 	var err error
