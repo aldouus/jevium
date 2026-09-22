@@ -23,11 +23,19 @@ func TestWebViewScopeDoesNotLeakToToolbar(t *testing.T) {
 	scopes := map[string]string{}
 	for _, a := range p.Actions {
 		scopes[a.Label] = a.Scope
-		if a.Kind == "scroll" && a.Scope != "web" {
-			t.Fatalf("web scrolling misclassified: %+v", a)
-		}
 	}
 	if scopes["Site menu"] != "web" || scopes["Browser menu"] != "native" {
 		t.Fatalf("scopes = %v", scopes)
+	}
+	for _, scope := range []string{"web", "native"} {
+		count := 0
+		for _, a := range p.Actions {
+			if a.Kind == "scroll" && a.Scope == scope {
+				count++
+			}
+		}
+		if count != 2 {
+			t.Fatalf("%s scroll count=%d", scope, count)
+		}
 	}
 }

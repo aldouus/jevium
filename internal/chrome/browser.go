@@ -218,6 +218,9 @@ func (b *Browser) Observe(screenshot bool) (page.Page, error) {
 	if err := json.Unmarshal(encoded, &p); err != nil {
 		return page.Page{}, err
 	}
+	for i := range p.Actions {
+		p.Actions[i].Scope = "web"
+	}
 	p = page.WithFingerprint(p)
 	if screenshot {
 		shot, err := b.inputCall("Page.captureScreenshot", map[string]any{"format": "jpeg", "quality": 72})
