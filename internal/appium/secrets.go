@@ -3,15 +3,26 @@ package appium
 import (
 	"github.com/aldous/jevium/internal/page"
 	"os"
+	"sort"
 	"strings"
 )
 
 func (d *Device) secretSnapshot(source string) (page.Page, error) {
+	secrets := make([]string, 0, len(d.cfg.SecretFields))
+	for _, ref := range d.cfg.SecretFields {
+		if secret := os.Getenv(ref); secret != "" {
+			secrets = append(secrets, secret)
+		}
+	}
+	sort.Slice(secrets, func(i, j int) bool {
+		if len(secrets[i]) == len(secrets[j]) {
+			return secrets[i] < secrets[j]
+		}
+		return len(secrets[i]) > len(secrets[j])
+	})
 	redact := func(s string) string {
-		for _, ref := range d.cfg.SecretFields {
-			if secret := os.Getenv(ref); secret != "" {
-				s = strings.ReplaceAll(s, secret, "[redacted]")
-			}
+		for _, secret := range secrets {
+			s = strings.ReplaceAll(s, secret, "[redacted]")
 		}
 		return s
 	}

@@ -48,7 +48,7 @@ func TestSecretEntryVerifiesFocusAndRedactsDriverErrors(t *testing.T) {
   <XCUIElementTypeSecureTextField name="Password" label="Password"
     x="20.5" y="30" width="200" height="40"/>
 </AppiumAUT>`
-	for _, active := range []string{"field", "other", "after-clear"} {
+	for _, active := range []string{"field", "other", "after-clear", "insecure-after-clear"} {
 		t.Run(active, func(t *testing.T) {
 			cleared, typed := 0, 0
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -64,10 +64,16 @@ func TestSecretEntryVerifiesFocusAndRedactsDriverErrors(t *testing.T) {
 					value = "Password"
 				case strings.HasSuffix(r.URL.Path, "/attribute/type"):
 					value = "XCUIElementTypeSecureTextField"
+					if active == "insecure-after-clear" && cleared > 0 {
+						value = "XCUIElementTypeTextField"
+					}
 				case strings.HasSuffix(r.URL.Path, "/rect"):
 					value = map[string]float64{"x": 20.5, "y": 30, "width": 200, "height": 40}
 				case strings.HasSuffix(r.URL.Path, "/element/active"):
 					focused := active
+					if active == "insecure-after-clear" {
+						focused = "field"
+					}
 					if active == "after-clear" {
 						focused = "field"
 						if cleared > 0 {
@@ -107,7 +113,7 @@ func TestSecretEntryVerifiesFocusAndRedactsDriverErrors(t *testing.T) {
 				want = 1
 			}
 			wantClear := want
-			if active == "after-clear" {
+			if active == "after-clear" || active == "insecure-after-clear" {
 				wantClear = 1
 			}
 			if cleared != wantClear || typed != want {
@@ -155,6 +161,26 @@ func TestSecretIsRedactedBeforeTextTruncation(t *testing.T) {
 	}
 	if p.Text != strings.Repeat("x", 5990)+"[redacted]" {
 		t.Fatalf("redacted text length=%d", len(p.Text))
+	}
+}
+
+func TestOverlappingSecretsAreFullyRedacted(t *testing.T) {
+	t.Setenv("SHORT_PASSWORD", "private")
+	t.Setenv("LONG_PASSWORD", "private-password-value")
+	const source = `<AppiumAUT>
+  <XCUIElementTypeStaticText label="private-password-value and private" x="0" y="0" width="200" height="40"/>
+</AppiumAUT>`
+	srv, _ := mockAppium(t, source, nil)
+	d, err := appium.New(appium.Config{URL: srv.URL, UDID: "test", HTTP: srv.Client(), SecretFields: map[string]string{"First": "SHORT_PASSWORD", "Second": "LONG_PASSWORD"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := d.Observe(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Text != "[redacted] and [redacted]" {
+		t.Fatalf("redaction=%q", p.Text)
 	}
 }
 
