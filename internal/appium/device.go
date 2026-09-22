@@ -42,6 +42,7 @@ type Config struct {
 	AllowedApps        []string
 	DeviceControls     bool
 	Fixtures           []Fixture
+	Retrievals         []Retrieval
 	URL                string
 	UDID               string
 	BundleID           string
@@ -75,6 +76,9 @@ func New(cfg Config) (*Device, error) {
 		}
 	}
 	if err := validateNavigation(cfg); err != nil {
+		return nil, err
+	}
+	if err := validateRetrievals(cfg.Retrievals); err != nil {
 		return nil, err
 	}
 	fixtures, err := loadFixtures(cfg.Fixtures)
@@ -162,6 +166,10 @@ func (d *Device) enableHitTesting() error {
 func (d *Device) path(suffix string) string { return "/session/" + d.sessionID + suffix }
 
 func (d *Device) call(method, path string, body any, dest any) error {
+	return d.callLimited(method, path, body, dest, 0)
+}
+
+func (d *Device) callLimited(method, path string, body any, dest any, limit int64) error {
 	var reader io.Reader
 	if body != nil {
 		raw, err := json.Marshal(body)
@@ -182,9 +190,16 @@ func (d *Device) call(method, path string, body any, dest any) error {
 		return DeviceError{Msg: err.Error()}
 	}
 	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
+	var response io.Reader = resp.Body
+	if limit > 0 {
+		response = io.LimitReader(resp.Body, limit+1)
+	}
+	data, err := io.ReadAll(response)
 	if err != nil {
 		return DeviceError{Msg: err.Error()}
+	}
+	if limit > 0 && int64(len(data)) > limit {
+		return DeviceError{Msg: "Appium response exceeds artifact size limit"}
 	}
 	err = decodeWire(resp.StatusCode, method, path, data, dest)
 	if err != nil && len(d.cfg.SecretFields) > 0 {

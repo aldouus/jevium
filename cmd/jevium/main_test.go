@@ -26,6 +26,13 @@ func TestRejectFixtureInChrome(t *testing.T) {
 	}
 }
 
+func TestRejectRetrievalInChrome(t *testing.T) {
+	err := run([]string{"--mode", "chrome", "--retrieve=@com.example.files:documents/download.pdf=download.pdf"})
+	if err == nil || err.Error() != "--retrieve requires appium mode" {
+		t.Fatalf("error=%v", err)
+	}
+}
+
 func TestRunAppiumMissingUDID(t *testing.T) {
 	t.Setenv("TYPESAFE_API_KEY", "test")
 	t.Setenv("APPIUM_UDID", "")

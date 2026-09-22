@@ -26,6 +26,11 @@ type loadedFixture struct {
 
 var fixtureDestination = regexp.MustCompile(`^@[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)+:documents/([^\x00-\x1f]+)$`)
 
+func validDocumentPath(remote string) bool {
+	match := fixtureDestination.FindStringSubmatch(remote)
+	return match != nil && path.Clean(match[1]) == match[1] && !strings.HasPrefix(match[1], "/") && !strings.HasPrefix(match[1], "../") && match[1] != ".." && match[1] != "." && !strings.Contains(match[1], "\\")
+}
+
 func ParseFixture(value string) (Fixture, error) {
 	local, remote, ok := strings.Cut(value, "=")
 	if !ok || local == "" || remote == "" {
@@ -38,8 +43,7 @@ func loadFixtures(fixtures []Fixture) ([]loadedFixture, error) {
 	var out []loadedFixture
 	seen := map[string]bool{}
 	for _, f := range fixtures {
-		match := fixtureDestination.FindStringSubmatch(f.RemotePath)
-		if match == nil || path.Clean(match[1]) != match[1] || strings.HasPrefix(match[1], "/") || strings.HasPrefix(match[1], "../") || match[1] == ".." || match[1] == "." || strings.Contains(match[1], "\\") {
+		if !validDocumentPath(f.RemotePath) {
 			return nil, fmt.Errorf("fixture destination must name a file inside @bundle.id:documents/")
 		}
 		if seen[f.RemotePath] {

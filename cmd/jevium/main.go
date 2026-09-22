@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -43,6 +44,8 @@ func run(args []string) error {
 	interactive := fs.Bool("tui", false, "Bubble Tea inspector")
 	var goals goalList
 	var fixtures goalList
+	var retrievals goalList
+	fs.Var(&retrievals, "retrieve", "retrieve @bundle.id:documents/filename=LOCAL after the run (repeatable; never overwrites local files)")
 	fs.Var(&fixtures, "fixture", "provision LOCAL=@bundle.id:documents/filename before the goal (repeatable; overwrites destination)")
 	fs.Var(&goals, "goal", "natural-language goal (repeatable)")
 	if err := fs.Parse(args); err != nil {
@@ -57,6 +60,9 @@ func run(args []string) error {
 	if *mode != "appium" && len(fixtures) > 0 {
 		return fmt.Errorf("--fixture requires appium mode")
 	}
+	if *mode != "appium" && len(retrievals) > 0 {
+		return fmt.Errorf("--retrieve requires appium mode")
+	}
 	if _, err := env.Require("TYPESAFE_API_KEY", "to call TypeSafe Jev"); err != nil {
 		return err
 	}
@@ -69,9 +75,18 @@ func run(args []string) error {
 	}
 	chooser := policy.Client{}
 	var surface agent.Surface
+	var device *appium.Device
 	var err error
 	switch *mode {
 	case "appium":
+		var downloads []appium.Retrieval
+		for _, value := range retrievals {
+			item, e := appium.ParseRetrieval(value)
+			if e != nil {
+				return e
+			}
+			downloads = append(downloads, item)
+		}
 		var configured []appium.Fixture
 		for _, value := range fixtures {
 			f, e := appium.ParseFixture(value)
@@ -80,12 +95,14 @@ func run(args []string) error {
 			}
 			configured = append(configured, f)
 		}
-		surface, err = appium.New(appium.Config{
+		device, err = appium.New(appium.Config{
 			StartURL: *startURL, AllowedApps: allowedApps,
 			DeviceControls: *deviceControls,
 			URL:            *appiumURL, UDID: *udid, BundleID: *bundle, SessionID: *session, WDALocalPort: *wda,
-			Fixtures: configured,
+			Fixtures:   configured,
+			Retrievals: downloads,
 		})
+		surface = device
 	case "chrome":
 		if *startURL == "" {
 			return fmt.Errorf("chrome mode needs --url")
@@ -104,9 +121,14 @@ func run(args []string) error {
 	}
 	defer a.Close()
 	if *interactive {
-		return tui.Run(a)
+		err = tui.Run(a)
+	} else {
+		err = a.Run()
 	}
-	if err := a.Run(); err != nil {
+	if device != nil {
+		err = errors.Join(err, device.RetrieveArtifacts())
+	}
+	if err != nil {
 		return err
 	}
 	fmt.Printf("%5d ms  %d actions  %s\n", a.State.ElapsedMS, len(a.State.History), a.State.Status)
