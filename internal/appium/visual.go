@@ -40,6 +40,13 @@ func (d *Device) visualPage(p page.Page) (page.Page, error) {
 	if p.W <= 0 || p.H <= 0 {
 		return p, fmt.Errorf("visual targets require observed window dimensions")
 	}
+	var window windowRect
+	if err := d.call(http.MethodGet, d.path("/window/rect"), nil, &window); err != nil {
+		return p, err
+	}
+	if window.X != 0 || window.Y != 0 || window.Width != p.W || window.Height != p.H {
+		return p, fmt.Errorf("visual targets require a full-screen window with matching native dimensions")
+	}
 	imageConfig, _, err := image.DecodeConfig(bytes.NewReader(frame))
 	if err != nil {
 		return p, err

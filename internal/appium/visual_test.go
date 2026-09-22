@@ -33,6 +33,8 @@ func TestVisualTargetsUseObservedFrameAndRejectChangedPixels(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var value any
 		switch {
+		case strings.HasSuffix(r.URL.Path, "/window/rect"):
+			value = windowRect{Width: 375, Height: 800}
 		case strings.HasSuffix(r.URL.Path, "/source"):
 			value = `<AppiumAUT><XCUIElementTypeWindow width="375" height="800"/></AppiumAUT>`
 		case strings.HasSuffix(r.URL.Path, "/screenshot"):

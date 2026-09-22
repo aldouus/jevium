@@ -33,6 +33,13 @@ func TestRejectRetrievalInChrome(t *testing.T) {
 	}
 }
 
+func TestRejectVisualOCRInChrome(t *testing.T) {
+	err := run([]string{"--mode", "chrome", "--visual-ocr=true"})
+	if err == nil || err.Error() != "--visual-ocr requires appium mode" {
+		t.Fatalf("error=%v", err)
+	}
+}
+
 func TestRunAppiumMissingUDID(t *testing.T) {
 	t.Setenv("TYPESAFE_API_KEY", "test")
 	t.Setenv("APPIUM_UDID", "")
