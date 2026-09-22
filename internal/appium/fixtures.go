@@ -10,6 +10,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"syscall"
 )
 
 const maxFixtureBytes = 20 << 20
@@ -45,7 +46,7 @@ func loadFixtures(fixtures []Fixture) ([]loadedFixture, error) {
 			return nil, fmt.Errorf("duplicate fixture destination %q", f.RemotePath)
 		}
 		seen[f.RemotePath] = true
-		file, err := os.Open(f.LocalPath)
+		file, err := os.OpenFile(f.LocalPath, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 		if err != nil {
 			return nil, fmt.Errorf("open fixture: %w", err)
 		}
