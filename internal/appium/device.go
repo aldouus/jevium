@@ -3,6 +3,7 @@ package appium
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -175,6 +176,24 @@ func (d *Device) call(method, path string, body any, dest any) error {
 }
 
 func (d *Device) callLimited(method, path string, body any, dest any, limit int64) error {
+	err := d.callOnce(method, path, body, dest, limit)
+	var transport transportError
+	if method == http.MethodGet && errors.As(err, &transport) {
+		// Reconnect only a read. An uncertain mutation or session creation is never replayed.
+		err = d.callOnce(method, path, body, dest, limit)
+	}
+	if err != nil && len(d.cfg.SecretFields) > 0 {
+		return DeviceError{Msg: "Appium request failed during secret-enabled run"}
+	}
+	if errors.As(err, &transport) {
+		return DeviceError{Msg: err.Error()}
+	}
+	return err
+}
+
+type transportError struct{ error }
+
+func (d *Device) callOnce(method, path string, body any, dest any, limit int64) error {
 	var reader io.Reader
 	if body != nil {
 		raw, err := json.Marshal(body)
@@ -192,7 +211,7 @@ func (d *Device) callLimited(method, path string, body any, dest any, limit int6
 	}
 	resp, err := d.http.Do(req)
 	if err != nil {
-		return DeviceError{Msg: err.Error()}
+		return transportError{err}
 	}
 	defer resp.Body.Close()
 	var response io.Reader = resp.Body
@@ -201,7 +220,7 @@ func (d *Device) callLimited(method, path string, body any, dest any, limit int6
 	}
 	data, err := io.ReadAll(response)
 	if err != nil {
-		return DeviceError{Msg: err.Error()}
+		return transportError{err}
 	}
 	if limit > 0 && int64(len(data)) > limit {
 		return DeviceError{Msg: "Appium response exceeds artifact size limit"}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -26,7 +27,7 @@ func main() {
 	}
 }
 
-func run(args []string) error {
+func run(args []string) (runErr error) {
 	if err := env.Load(""); err != nil {
 		return err
 	}
@@ -49,6 +50,11 @@ func run(args []string) error {
 	coveragePath := fs.String("coverage", "", "write durable JSON coverage report to this file")
 	var expectedURLs goalList
 	fs.Var(&expectedURLs, "audit-url", "expected page URL, repeatable; unvisited entries remain explicit")
+	devices := fs.String("devices", "", "comma-separated UDIDs to run concurrently (requires --record-dir)")
+	discover := fs.Bool("list-devices", false, "list connected devices using xcrun devicectl, without running a goal")
+	mjpeg := fs.Int("mjpeg-server-port", env.Atoi("APPIUM_MJPEG_SERVER_PORT", 9101), "MJPEG port (first port for multiple devices)")
+	derived := fs.String("derived-data-path", os.Getenv("APPIUM_DERIVED_DATA_PATH"), "Xcode derived-data directory (parent for multiple devices)")
+	resultFile := fs.String("result-file", "", "write final run state as JSON")
 	var goals goalList
 	var fixtures goalList
 	var retrievals goalList
@@ -81,6 +87,44 @@ func run(args []string) error {
 	conditions, err := agent.ParseExpectations(expectations)
 	if err != nil {
 		return err
+	}
+	if fs.NArg() != 0 {
+		return fmt.Errorf("unexpected positional arguments")
+	}
+	if *discover {
+		if *devices != "" || len(goals) != 0 {
+			return fmt.Errorf("--list-devices cannot run goals or --devices")
+		}
+		return listDevices(os.Stdout)
+	}
+	if *devices != "" {
+		explicitUDID := false
+		fs.Visit(func(f *flag.Flag) {
+			if f.Name == "udid" {
+				explicitUDID = true
+			}
+		})
+		if explicitUDID {
+			return fmt.Errorf("choose --devices or --udid, not both")
+		}
+		if *mode != "appium" || *interactive || *session != "" || *resultFile != "" || *startURL != "" {
+			return fmt.Errorf("--devices requires appium mode without --tui, --session-id, --result-file, or --url")
+		}
+		if len(goals) == 0 {
+			return fmt.Errorf("supply --goal")
+		}
+		jobs, err := deviceJobs(*devices, *record, *derived, *wda, *mjpeg)
+		if err != nil {
+			return err
+		}
+		if _, err := env.Require("TYPESAFE_API_KEY", "to call TypeSafe Jev"); err != nil {
+			return err
+		}
+		executable, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		return runDevices(jobs, executable, *appiumURL, *bundle, goals, os.Stdout, runDeviceProcess)
 	}
 	if _, err := env.Require("TYPESAFE_API_KEY", "to call TypeSafe Jev"); err != nil {
 		return err
@@ -123,7 +167,7 @@ func run(args []string) error {
 		device, err = appium.New(appium.Config{
 			StartURL: *startURL, AllowedApps: allowedApps,
 			DeviceControls: *deviceControls,
-			URL:            *appiumURL, UDID: *udid, BundleID: *bundle, SessionID: *session, WDALocalPort: *wda,
+			URL:            *appiumURL, UDID: *udid, BundleID: *bundle, SessionID: *session, WDALocalPort: *wda, MJPEGServerPort: *mjpeg, DerivedDataPath: *derived,
 			Fixtures:   configured,
 			Retrievals: downloads,
 			Visual:     recognizer,
@@ -153,6 +197,16 @@ func run(args []string) error {
 	}
 	if len(conditions) > 0 {
 		a.VerifyDone = func(_ string, p page.Page) bool { return agent.ExpectationsMatch(conditions, p) }
+	}
+	if *resultFile != "" {
+		defer func() {
+			// The process exit code still reports execution failures; state records partial progress.
+			data, err := json.Marshal(a.State)
+			if err == nil {
+				err = os.WriteFile(*resultFile, data, 0o600)
+			}
+			runErr = errors.Join(runErr, err)
+		}()
 	}
 	if *interactive {
 		err = tui.Run(a)
