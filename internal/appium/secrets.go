@@ -23,8 +23,17 @@ func (d *Device) secretSnapshot(source string) (page.Page, error) {
 		return s
 	}
 	actions := make([]page.Action, 0, len(p.Actions))
+	counts := map[string]int{}
 	for _, a := range p.Actions {
 		if a.Kind == "secure_fill" {
+			counts[a.Label]++
+		}
+	}
+	for _, a := range p.Actions {
+		if a.Kind == "secure_fill" {
+			if counts[a.Label] != 1 {
+				continue
+			}
 			if _, ok := d.cfg.SecretFields[a.Label]; !ok {
 				continue
 			}

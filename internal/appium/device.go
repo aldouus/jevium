@@ -161,7 +161,11 @@ func (d *Device) call(method, path string, body any, dest any) error {
 	if err != nil {
 		return DeviceError{Msg: err.Error()}
 	}
-	return decodeWire(resp.StatusCode, method, path, data, dest)
+	err = decodeWire(resp.StatusCode, method, path, data, dest)
+	if err != nil && len(d.cfg.SecretFields) > 0 {
+		return DeviceError{Msg: "Appium request failed during secret-enabled run"}
+	}
+	return err
 }
 
 func (d *Device) createSession() error {
@@ -349,6 +353,9 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		var name string
 		if err := d.call(http.MethodGet, d.path("/element/"+id+"/attribute/label"), nil, &name); err != nil || name != action.Label {
 			return DeviceError{Msg: "Focused secret field does not match target; not retrying"}
+		}
+		if err := d.call(http.MethodPost, d.path("/element/"+id+"/clear"), struct{}{}, nil); err != nil {
+			return DeviceError{Msg: "Could not clear secret field; not retrying"}
 		}
 		if err := d.typeText(os.Getenv(ref)); err != nil {
 			return DeviceError{Msg: "Secret entry failed; not retrying"}
