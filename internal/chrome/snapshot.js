@@ -67,7 +67,7 @@
     if (['checkbox','radio'].includes(e.type)) base.checked=String(e.checked);
     const state={node:base.node,label:base.label,checked:base.checked,
       selected:base.selected,expanded:base.expanded};
-    if (e.tagName==='SELECT' || ['textbox','searchbox','spinbutton'].includes(rname)) {
+    if (e.tagName==='SELECT' || ['textbox','searchbox','spinbutton','combobox'].includes(rname)) {
       if ('value' in e) state.value=String(e.value);
       else if (e.isContentEditable) state.value=e.innerText.trim();
     }

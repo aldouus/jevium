@@ -25,6 +25,14 @@ test('readonly values remain observable without a fill operation',()=>{
   assert.equal(p.controls[0].value,'123');
   assert.equal(p.actions.some(a=>a.kind==='fill'),false);
 });
+test('editable combobox values remain observable',()=>{
+  const input=control('INPUT','Country','Canada');
+  input.getAttribute=name=>name==='role'?'combobox':name==='aria-label'?'Country':null;
+  const p=snapshot([input]);
+  assert.equal(p.controls.length,1);
+  assert.equal(p.controls[0].value,'Canada');
+  assert.equal(p.actions.some(a=>a.kind==='fill'),true);
+});
 test('selected value survives when no alternative option is actionable',()=>{
   const p=snapshot([control('SELECT','Country','ca',{options:[
     {label:'Canada',value:'ca',selected:true,disabled:false,closest(){return null}},
