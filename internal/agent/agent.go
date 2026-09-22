@@ -214,6 +214,9 @@ func (a *Agent) Command(name string, fingerprint string) (result error) {
 		}
 		a.Coverage.Observe(a.State.Page)
 		a.Coverage.Status = a.State.Status
+		if result != nil && !IsStale(result) {
+			a.Coverage.Status = "interrupted"
+		}
 		if err := a.saveCoverage(); err != nil {
 			result = errors.Join(result, err)
 		}
