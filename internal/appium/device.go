@@ -216,7 +216,7 @@ func (d *Device) Observe(screenshot bool) (page.Page, error) {
 	if err != nil {
 		return page.Page{}, err
 	}
-	p, err := SnapshotFromSource(src, d.cfg.BundleID, nil)
+	p, err := d.snapshot(src)
 	if err != nil {
 		return page.Page{}, err
 	}
@@ -238,7 +238,7 @@ func (d *Device) Fresh(p page.Page, action *page.Action) bool {
 	if err != nil {
 		return false
 	}
-	current, err := SnapshotFromSource(src, d.cfg.BundleID, nil)
+	current, err := d.snapshot(src)
 	if err != nil {
 		return false
 	}
@@ -264,15 +264,6 @@ func matchingAction(p page.Page, action page.Action) (page.Action, bool) {
 	return page.Action{}, false
 }
 
-func fieldByNode(p page.Page, node any) (page.Action, bool) {
-	for _, a := range p.Actions {
-		if a.Kind == "fill" && a.Node == node {
-			return a, true
-		}
-	}
-	return page.Action{}, false
-}
-
 func sameRect(a, b *page.Rect) bool {
 	if a == nil || b == nil {
 		return a == b
@@ -289,18 +280,11 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		keys := map[string]string{"key_backspace": "\uE003", "key_left": "\uE012", "key_right": "\uE014", "key_return": "\uE006"}
 		return d.typeText(keys[action.Kind])
 	case "clear_text":
-		if err := d.click(action); err != nil {
-			return err
-		}
-		current, err := d.Observe(false)
+		id, err := d.focusField(action)
 		if err != nil {
 			return err
 		}
-		field, ok := fieldByNode(current, action.Node)
-		if !ok {
-			return DeviceError{Msg: "Target field changed after focus; not retrying"}
-		}
-		return d.clearActiveField(field)
+		return d.call(http.MethodPost, d.path("/element/"+id+"/clear"), struct{}{}, nil)
 	case "wait":
 		time.Sleep(100 * time.Millisecond)
 		return nil
@@ -328,25 +312,12 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		if text == nil || strings.TrimSpace(*text) == "" {
 			return fmt.Errorf("TYPE_TEXT needs text from the helper; the executor does not guess")
 		}
-		if err := d.click(action); err != nil {
-			return err
-		}
-		src, err := d.source()
+		id, err := d.focusField(action)
 		if err != nil {
 			return err
 		}
-		current, err := SnapshotFromSource(src, d.cfg.BundleID, nil)
-		if err != nil {
+		if err := d.call(http.MethodPost, d.path("/element/"+id+"/clear"), struct{}{}, nil); err != nil {
 			return err
-		}
-		field, ok := fieldByNode(current, action.Node)
-		if !ok {
-			return fmt.Errorf("field %q is gone after tap; not retrying", action.Label)
-		}
-		if field.Value != "" {
-			if err := d.clearActiveField(field); err != nil {
-				return err
-			}
 		}
 		return d.typeText(*text)
 	case "select":
@@ -366,23 +337,22 @@ func (d *Device) click(action page.Action) error {
 	return d.tap(x, y)
 }
 
-func (d *Device) clearActiveField(action page.Action) error {
+func (d *Device) focusField(action page.Action) (string, error) {
+	id, err := d.resolveElement(action)
+	if err != nil {
+		return "", err
+	}
+	if err := d.click(action); err != nil {
+		return "", err
+	}
 	var element map[string]string
 	if err := d.call(http.MethodGet, d.path("/element/active"), nil, &element); err != nil {
-		return err
+		return "", DeviceError{Msg: "Could not verify focused field; not retrying"}
 	}
-	id := element["element-6066-11e4-a52e-4f735466cecf"]
-	if id == "" {
-		return DeviceError{Msg: "Focused field has no element reference; text was not cleared"}
+	if element["element-6066-11e4-a52e-4f735466cecf"] != id {
+		return "", DeviceError{Msg: "Focused field does not match resolved target; not retrying"}
 	}
-	var rect windowRect
-	if err := d.call(http.MethodGet, d.path("/element/"+id+"/rect"), nil, &rect); err != nil {
-		return err
-	}
-	if action.Rect == nil || rect.X != action.Rect.X || rect.Y != action.Rect.Y || rect.Width != action.Rect.W || rect.Height != action.Rect.H {
-		return DeviceError{Msg: "Focused field does not match observed target; text was not cleared"}
-	}
-	return d.call(http.MethodPost, d.path("/element/"+id+"/clear"), struct{}{}, nil)
+	return id, nil
 }
 
 func (d *Device) typeText(text string) error {

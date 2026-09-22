@@ -3,6 +3,7 @@ package appium
 import (
 	"encoding/xml"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 
@@ -81,7 +82,15 @@ func (n node) label() string {
 }
 
 func (n node) rect() page.Rect {
-	return page.Rect{X: float64(n.intAttr("x")), Y: float64(n.intAttr("y")), W: float64(n.intAttr("width")), H: float64(n.intAttr("height"))}
+	return page.Rect{X: n.floatAttr("x"), Y: n.floatAttr("y"), W: n.floatAttr("width"), H: n.floatAttr("height")}
+}
+
+func (n node) floatAttr(name string) float64 {
+	v, err := strconv.ParseFloat(n.attr(name), 64)
+	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
+		return 0
+	}
+	return v
 }
 
 func onScreen(r page.Rect, window *page.Rect) bool {
@@ -214,13 +223,6 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 						clear := base
 						clear.Kind = "clear_text"
 						actions = append(actions, clear)
-						if n.boolAttr("focused", false) {
-							for _, key := range []string{"backspace", "left", "right", "return"} {
-								edit := base
-								edit.Kind = "key_" + key
-								actions = append(actions, edit)
-							}
-						}
 						open := base
 						open.Kind = "click"
 						open.Label = "Open " + label

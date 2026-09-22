@@ -369,7 +369,7 @@ func (a *Agent) Command(name string, fingerprint string) error {
 			tail := h[len(h)-3:]
 			stuck := true
 			for _, e := range tail {
-				if e.PageChanged == nil || *e.PageChanged || e.Kind == "wait" {
+				if e.PageChanged == nil || *e.PageChanged || e.Kind == "wait" || e.Kind == "key_left" || e.Kind == "key_right" {
 					stuck = false
 					break
 				}

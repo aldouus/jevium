@@ -44,6 +44,14 @@ func mockAppium(t *testing.T, source string, onPost func(*recorded) any) (*httpt
 		calls = append(calls, item)
 		var value any
 		switch {
+		case strings.HasSuffix(r.URL.Path, "/elements"):
+			value = []map[string]string{{"element-6066-11e4-a52e-4f735466cecf": "field"}}
+		case strings.HasSuffix(r.URL.Path, "/element/active"):
+			value = map[string]string{"element-6066-11e4-a52e-4f735466cecf": "field"}
+		case strings.HasSuffix(r.URL.Path, "/attribute/name"):
+			value = "Address"
+		case strings.Contains(r.URL.Path, "/element/") && strings.HasSuffix(r.URL.Path, "/rect"):
+			value = map[string]int{"x": 48, "y": 54, "width": 240, "height": 32}
 		case r.Method == http.MethodPost && r.URL.Path == "/session":
 			value = map[string]any{"sessionId": "sess-1"}
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/source"):
@@ -241,9 +249,6 @@ func TestFillTapsThenTypesWithW3CActions(t *testing.T) {
 		if r.Path == "/session/sess-1/actions" {
 			typed = r.Body["actions"].([]any)
 		}
-		if strings.Contains(r.Path, "/element/") {
-			t.Fatalf("element-id path %s", r.Path)
-		}
 		if strings.Contains(r.Path, "/w3c/actions") || strings.HasSuffix(r.Path, "/keys") {
 			t.Fatalf("legacy type path %s", r.Path)
 		}
@@ -308,19 +313,16 @@ func TestFillTapsThenTypesWithW3CActions(t *testing.T) {
 	}
 	sawTap, sawSourceAfterTap, sawType := false, false, false
 	for _, c := range *calls {
-		if strings.Contains(c.Path, "/element/") {
-			t.Fatalf("fill used element-id path %s", c.Path)
-		}
 		if c.Path == "/session/sess-1/execute/sync" && c.Body["script"] == "mobile: tap" {
 			sawTap = true
 			sawSourceAfterTap = false
 		}
-		if sawTap && !sawType && c.Method == "GET" && c.Path == "/session/sess-1/source" {
+		if sawTap && !sawType && c.Method == "GET" && c.Path == "/session/sess-1/element/active" {
 			sawSourceAfterTap = true
 		}
 		if c.Path == "/session/sess-1/actions" {
 			if !sawSourceAfterTap {
-				t.Fatal("typed without re-observing after tap")
+				t.Fatal("typed without verifying active element after tap")
 			}
 			sawType = true
 		}
@@ -415,11 +417,16 @@ func TestFillTypesAfterKeyboardShiftsSameField(t *testing.T) {
 	source := fieldXML
 	var typed bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "/element/") {
-			t.Fatalf("element-id path %s", r.URL.Path)
-		}
 		var value any
 		switch {
+		case strings.HasSuffix(r.URL.Path, "/elements"):
+			value = []map[string]string{{"element-6066-11e4-a52e-4f735466cecf": "field"}}
+		case strings.HasSuffix(r.URL.Path, "/element/active"):
+			value = map[string]string{"element-6066-11e4-a52e-4f735466cecf": "field"}
+		case strings.HasSuffix(r.URL.Path, "/attribute/name"):
+			value = "Address"
+		case strings.Contains(r.URL.Path, "/element/") && strings.HasSuffix(r.URL.Path, "/rect"):
+			value = map[string]int{"x": 48, "y": 54, "width": 240, "height": 32}
 		case r.Method == http.MethodPost && r.URL.Path == "/session":
 			value = map[string]any{"sessionId": "sess-1"}
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/source"):

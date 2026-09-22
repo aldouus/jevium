@@ -59,6 +59,28 @@ func sample() page.Page {
 	})
 }
 
+func TestCursorMovementMayLeaveAccessibilitySnapshotUnchanged(t *testing.T) {
+	p := page.WithFingerprint(page.Page{Actions: []page.Action{{ID: "left", Kind: "key_left", Label: "Search"}}})
+	s := &fakeSurface{page: p, fresh: true}
+	a, err := agent.New(s, fakeChooser{}, "Move cursor left five characters", false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 5; i++ {
+		a.State.Decision = &policy.Decision{Choice: "left", Operation: "CURSOR_LEFT"}
+		a.State.Status = "predicted"
+		if err := a.Command("act", p.Fingerprint); err != nil {
+			t.Fatal(err)
+		}
+		if a.State.Status == "blocked" {
+			t.Fatalf("blocked after %d cursor actions", i+1)
+		}
+	}
+	if len(s.acted) != 5 {
+		t.Fatalf("actions=%d", len(s.acted))
+	}
+}
+
 func TestStaleDecisionDoesNotMutate(t *testing.T) {
 	p := sample()
 	s := &fakeSurface{page: p, fresh: false}
