@@ -14,6 +14,7 @@ import (
 	"github.com/aldous/jevium/internal/policy"
 	"github.com/aldous/jevium/internal/rlimit"
 	"github.com/aldous/jevium/internal/tui"
+	"github.com/aldous/jevium/internal/visual"
 )
 
 func main() {
@@ -41,6 +42,7 @@ func run(args []string) error {
 	deviceControls := fs.Bool("device-controls", false, "enable observed rotation, keyboard dismissal, lock and OS unlock controls")
 	record := fs.String("record-dir", "", "optional screenshot directory")
 	screenshots := fs.Bool("screenshots", false, "capture screenshots (not sent to Jev)")
+	visualOCR := fs.Bool("visual-ocr", false, "enable local macOS Vision text targets (screenshots stay local)")
 	interactive := fs.Bool("tui", false, "Bubble Tea inspector")
 	var goals goalList
 	var fixtures goalList
@@ -63,6 +65,9 @@ func run(args []string) error {
 	if *mode != "appium" && len(retrievals) > 0 {
 		return fmt.Errorf("--retrieve requires appium mode")
 	}
+	if *mode != "appium" && *visualOCR {
+		return fmt.Errorf("--visual-ocr requires appium mode")
+	}
 	if _, err := env.Require("TYPESAFE_API_KEY", "to call TypeSafe Jev"); err != nil {
 		return err
 	}
@@ -79,6 +84,10 @@ func run(args []string) error {
 	var err error
 	switch *mode {
 	case "appium":
+		var recognizer visual.Recognizer
+		if *visualOCR {
+			recognizer = visual.MacOCR{}
+		}
 		var downloads []appium.Retrieval
 		for _, value := range retrievals {
 			item, e := appium.ParseRetrieval(value)
@@ -101,6 +110,7 @@ func run(args []string) error {
 			URL:            *appiumURL, UDID: *udid, BundleID: *bundle, SessionID: *session, WDALocalPort: *wda,
 			Fixtures:   configured,
 			Retrievals: downloads,
+			Visual:     recognizer,
 		})
 		surface = device
 	case "chrome":

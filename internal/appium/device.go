@@ -14,6 +14,7 @@ import (
 	"github.com/aldous/jevium/internal/env"
 	"github.com/aldous/jevium/internal/page"
 	"github.com/aldous/jevium/internal/stale"
+	"github.com/aldous/jevium/internal/visual"
 )
 
 type StalePageError struct{ Msg string }
@@ -43,6 +44,7 @@ type Config struct {
 	DeviceControls     bool
 	Fixtures           []Fixture
 	Retrievals         []Retrieval
+	Visual             visual.Recognizer
 	URL                string
 	UDID               string
 	BundleID           string
@@ -69,6 +71,9 @@ func New(cfg Config) (*Device, error) {
 		if err := json.Unmarshal([]byte(raw), &cfg.SecretFields); err != nil {
 			return nil, fmt.Errorf("APPIUM_SECRET_FIELDS must map field labels to environment variable names")
 		}
+	}
+	if cfg.Visual != nil && len(cfg.SecretFields) > 0 {
+		return nil, fmt.Errorf("visual OCR cannot be combined with secret fields")
 	}
 	for label, ref := range cfg.SecretFields {
 		if label == "" || ref == "" || os.Getenv(ref) == "" {
@@ -277,7 +282,7 @@ func (d *Device) Observe(screenshot bool) (page.Page, error) {
 	if err != nil {
 		return page.Page{}, err
 	}
-	if screenshot && len(d.cfg.SecretFields) == 0 {
+	if (screenshot || d.cfg.Visual != nil) && len(d.cfg.SecretFields) == 0 {
 		var s string
 		if err := d.call(http.MethodGet, d.path("/screenshot"), nil, &s); err != nil {
 			return page.Page{}, err
@@ -286,6 +291,9 @@ func (d *Device) Observe(screenshot bool) (page.Page, error) {
 			return page.Page{}, StalePageError{Msg: "Appium screenshot was not a string"}
 		}
 		p.Screenshot = s
+	}
+	if d.cfg.Visual != nil {
+		return d.visualPage(p)
 	}
 	return p, nil
 }
@@ -298,6 +306,9 @@ func (d *Device) Fresh(p page.Page, action *page.Action) bool {
 	current, err := d.snapshot(src)
 	if err != nil {
 		return false
+	}
+	if d.cfg.Visual != nil {
+		return d.visualFresh(p, current, action)
 	}
 	if current.Fingerprint != p.Fingerprint {
 		return false
@@ -329,7 +340,11 @@ func sameRect(a, b *page.Rect) bool {
 }
 
 func (d *Device) Act(action page.Action, p page.Page, text *string) error {
-	if !d.Fresh(p, nil) {
+	var target *page.Action
+	if d.cfg.Visual != nil {
+		target = &action
+	}
+	if !d.Fresh(p, target) {
 		return StalePageError{Msg: "Screen changed since this decision. Observe again."}
 	}
 	switch action.Kind {
