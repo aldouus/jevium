@@ -335,6 +335,10 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		if !ok || os.Getenv(ref) == "" {
 			return DeviceError{Msg: "No secret configured for the observed field"}
 		}
+		resolved, err := d.resolveElement(action)
+		if err != nil {
+			return DeviceError{Msg: "Could not uniquely resolve secret field"}
+		}
 		if err := d.click(action); err != nil {
 			return DeviceError{Msg: "Could not focus secret field; not retrying"}
 		}
@@ -343,7 +347,7 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 			return DeviceError{Msg: "Could not verify secret field focus; not retrying"}
 		}
 		id := active["element-6066-11e4-a52e-4f735466cecf"]
-		if id == "" {
+		if id == "" || id != resolved {
 			return DeviceError{Msg: "Secret field has no active element reference; not retrying"}
 		}
 		var kind string

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"github.com/aldous/jevium/internal/appium"
 	"github.com/aldous/jevium/internal/policy"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -37,6 +39,91 @@ func TestConfiguredSecretNeverEntersObservation(t *testing.T) {
 	}
 	if p.Source != "" || p.Screenshot != "" {
 		t.Fatal("unredacted capture retained")
+	}
+}
+
+func TestSecretEntryVerifiesFocusAndRedactsDriverErrors(t *testing.T) {
+	t.Setenv("TEST_PASSWORD", "private-password")
+	const source = `<AppiumAUT>
+  <XCUIElementTypeSecureTextField name="Password" label="Password"
+    x="20.5" y="30" width="200" height="40"/>
+</AppiumAUT>`
+	for _, active := range []string{"field", "other"} {
+		t.Run(active, func(t *testing.T) {
+			cleared, typed := 0, 0
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var value any
+				switch {
+				case r.URL.Path == "/session":
+					value = map[string]string{"sessionId": "test"}
+				case strings.HasSuffix(r.URL.Path, "/source"):
+					value = source
+				case strings.HasSuffix(r.URL.Path, "/elements"):
+					value = []map[string]string{{"element-6066-11e4-a52e-4f735466cecf": "field"}}
+				case strings.HasSuffix(r.URL.Path, "/attribute/name"), strings.HasSuffix(r.URL.Path, "/attribute/label"):
+					value = "Password"
+				case strings.HasSuffix(r.URL.Path, "/attribute/type"):
+					value = "XCUIElementTypeSecureTextField"
+				case strings.HasSuffix(r.URL.Path, "/rect"):
+					value = map[string]float64{"x": 20.5, "y": 30, "width": 200, "height": 40}
+				case strings.HasSuffix(r.URL.Path, "/element/active"):
+					value = map[string]string{"element-6066-11e4-a52e-4f735466cecf": active}
+				case strings.HasSuffix(r.URL.Path, "/clear"):
+					cleared++
+				case strings.HasSuffix(r.URL.Path, "/actions"):
+					typed++
+					value = map[string]string{"error": "unknown error", "message": "private-password failed"}
+				}
+				json.NewEncoder(w).Encode(map[string]any{"value": value})
+			}))
+			defer srv.Close()
+			d, err := appium.New(appium.Config{URL: srv.URL, UDID: "test", HTTP: srv.Client(), SecretFields: map[string]string{"Password": "TEST_PASSWORD"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			p, err := d.Observe(false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, targets, _ := policy.ActionSpace(p.Actions)
+			if len(targets["TYPE_SECRET"]) != 1 {
+				t.Fatalf("targets=%v", targets)
+			}
+			for _, a := range targets["TYPE_SECRET"] {
+				err = d.Act(a, p, nil)
+			}
+			if err == nil || strings.Contains(err.Error(), "private-password") {
+				t.Fatalf("error leaked or missing: %v", err)
+			}
+			want := 0
+			if active == "field" {
+				want = 1
+			}
+			if cleared != want || typed != want {
+				t.Fatalf("cleared=%d typed=%d want=%d", cleared, typed, want)
+			}
+		})
+	}
+}
+
+func TestDuplicateSecretLabelsAreExcluded(t *testing.T) {
+	t.Setenv("TEST_PASSWORD", "private-password")
+	const source = `<AppiumAUT>
+  <XCUIElementTypeSecureTextField label="Password" x="20" y="30" width="200" height="40"/>
+  <XCUIElementTypeSecureTextField label="Password" x="20" y="90" width="200" height="40"/>
+</AppiumAUT>`
+	srv, _ := mockAppium(t, source, nil)
+	d, err := appium.New(appium.Config{URL: srv.URL, UDID: "test", HTTP: srv.Client(), SecretFields: map[string]string{"Password": "TEST_PASSWORD"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := d.Observe(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, targets, _ := policy.ActionSpace(p.Actions)
+	if len(targets["TYPE_SECRET"]) != 0 {
+		t.Fatalf("ambiguous targets=%v", targets)
 	}
 }
 
