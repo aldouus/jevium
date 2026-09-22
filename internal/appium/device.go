@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -36,6 +37,7 @@ type UnsupportedError struct{ Msg string }
 func (e UnsupportedError) Error() string { return e.Msg }
 
 type Config struct {
+	SecretFields       map[string]string
 	URL                string
 	UDID               string
 	BundleID           string
@@ -58,6 +60,16 @@ type Device struct {
 }
 
 func New(cfg Config) (*Device, error) {
+	if raw := os.Getenv("APPIUM_SECRET_FIELDS"); raw != "" && cfg.SecretFields == nil {
+		if err := json.Unmarshal([]byte(raw), &cfg.SecretFields); err != nil {
+			return nil, fmt.Errorf("APPIUM_SECRET_FIELDS must map field labels to environment variable names")
+		}
+	}
+	for label, ref := range cfg.SecretFields {
+		if label == "" || ref == "" || os.Getenv(ref) == "" {
+			return nil, fmt.Errorf("secret field configuration references a missing environment value")
+		}
+	}
 	if cfg.URL == "" {
 		cfg.URL = env.Get("APPIUM_URL", "http://127.0.0.1:4723")
 	}
@@ -221,7 +233,7 @@ func (d *Device) Observe(screenshot bool) (page.Page, error) {
 	if err != nil {
 		return page.Page{}, err
 	}
-	if screenshot {
+	if screenshot && len(d.cfg.SecretFields) == 0 {
 		var s string
 		if err := d.call(http.MethodGet, d.path("/screenshot"), nil, &s); err != nil {
 			return page.Page{}, err
@@ -314,6 +326,34 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 			return err
 		}
 		return d.call(http.MethodPost, d.path("/element/"+id+"/clear"), struct{}{}, nil)
+	case "secure_fill":
+		ref, ok := d.cfg.SecretFields[action.Label]
+		if !ok || os.Getenv(ref) == "" {
+			return DeviceError{Msg: "No secret configured for the observed field"}
+		}
+		if err := d.click(action); err != nil {
+			return DeviceError{Msg: "Could not focus secret field; not retrying"}
+		}
+		var active map[string]string
+		if err := d.call(http.MethodGet, d.path("/element/active"), nil, &active); err != nil {
+			return DeviceError{Msg: "Could not verify secret field focus; not retrying"}
+		}
+		id := active["element-6066-11e4-a52e-4f735466cecf"]
+		if id == "" {
+			return DeviceError{Msg: "Secret field has no active element reference; not retrying"}
+		}
+		var kind string
+		if err := d.call(http.MethodGet, d.path("/element/"+id+"/attribute/type"), nil, &kind); err != nil || kind != "XCUIElementTypeSecureTextField" {
+			return DeviceError{Msg: "Focused element is not a secure field; not retrying"}
+		}
+		var name string
+		if err := d.call(http.MethodGet, d.path("/element/"+id+"/attribute/label"), nil, &name); err != nil || name != action.Label {
+			return DeviceError{Msg: "Focused secret field does not match target; not retrying"}
+		}
+		if err := d.typeText(os.Getenv(ref)); err != nil {
+			return DeviceError{Msg: "Secret entry failed; not retrying"}
+		}
+		return nil
 	case "wait":
 		time.Sleep(100 * time.Millisecond)
 		return nil

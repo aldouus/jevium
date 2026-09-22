@@ -17,11 +17,12 @@ var clickTypes = map[string]struct{}{
 	"XCUIElementTypeKey": {}, "XCUIElementTypeMenuItem": {}, "XCUIElementTypeCollectionViewCell": {},
 }
 var fillTypes = map[string]struct{}{
-	"XCUIElementTypeTextField": {}, "XCUIElementTypeSearchField": {}, "XCUIElementTypeTextView": {},
+	"XCUIElementTypeSecureTextField": {},
+	"XCUIElementTypeTextField":       {}, "XCUIElementTypeSearchField": {}, "XCUIElementTypeTextView": {},
 }
 var selectTypes = map[string]struct{}{"XCUIElementTypePickerWheel": {}}
 var toggleTypes = map[string]struct{}{"XCUIElementTypeSwitch": {}, "XCUIElementTypeCheckBox": {}}
-var skipTypes = map[string]struct{}{"XCUIElementTypeSecureTextField": {}}
+var skipTypes = map[string]struct{}{}
 var textTypes = map[string]struct{}{"XCUIElementTypeStaticText": {}, "XCUIElementTypeTextView": {}}
 
 var roles = map[string]string{
@@ -125,6 +126,10 @@ func walk(n node, fn func(node)) {
 }
 
 func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, error) {
+	return snapshotFromSource(source, bundleID, window, false)
+}
+
+func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool) (page.Page, error) {
 	dec := xml.NewDecoder(strings.NewReader(source))
 	dec.CharsetReader = func(_ string, input io.Reader) (io.Reader, error) { return input, nil }
 	var root node
@@ -186,6 +191,14 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 	var visit func(*node, *page.Rect)
 	visit = func(n *node, clip *page.Rect) {
 		kind := n.local()
+		if kind == "XCUIElementTypeSecureTextField" {
+			source = ""
+			for i := range n.Attrs {
+				if n.Attrs[i].Name.Local == "value" {
+					n.Attrs[i].Value = ""
+				}
+			}
+		}
 		r := n.rect()
 		if (scrollContainer(kind) || kind == "XCUIElementTypeWindow") && r.W > 0 && r.H > 0 {
 			bounds := intersect(r, clip)
@@ -229,6 +242,13 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 							a.Label = label + " → " + strconv.Itoa(int(fraction*100)) + "%"
 							actions = append(actions, a)
 						}
+					case kind == "XCUIElementTypeSecureTextField":
+						if !secrets {
+							break
+						}
+						base.Kind = "secure_fill"
+						base.Role = "password"
+						actions = append(actions, base)
 					case has(fillTypes, kind):
 						fill := base
 						fill.Kind = "fill"

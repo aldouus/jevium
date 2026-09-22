@@ -8,7 +8,7 @@ import (
 )
 
 func (d *Device) snapshot(src string) (page.Page, error) {
-	p, err := SnapshotFromSource(src, d.cfg.BundleID, nil)
+	p, err := d.secretSnapshot(src)
 	if err != nil {
 		return p, err
 	}
