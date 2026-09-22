@@ -12,6 +12,13 @@ func TestRejectAppiumOnlyOptionInChrome(t *testing.T) {
 	}
 }
 
+func TestRejectDeviceControlsInChrome(t *testing.T) {
+	err := run([]string{"--mode", "chrome", "--device-controls=true"})
+	if err == nil || err.Error() != "--device-controls requires appium mode" {
+		t.Fatalf("error=%v", err)
+	}
+}
+
 func TestRunAppiumMissingUDID(t *testing.T) {
 	t.Setenv("TYPESAFE_API_KEY", "test")
 	t.Setenv("APPIUM_UDID", "")
