@@ -3,10 +3,24 @@ package agent
 import (
 	"fmt"
 	"github.com/aldous/jevium/internal/page"
+	"strings"
 )
 
 // ActionOutcome separates a changed observation from proof of the intended effect.
 func ActionOutcome(action page.Action, text *string, before, after page.Page) string {
+	if action.Kind == "select" {
+		found, matches := false, true
+		for _, candidate := range after.Actions {
+			if candidate.Kind != "select" || fmt.Sprint(candidate.Node) != fmt.Sprint(action.Node) || strings.Split(candidate.Label, " → ")[0] != strings.Split(action.Label, " → ")[0] {
+				continue
+			}
+			found = true
+			matches = matches && candidate.CurrentValue == action.Value
+		}
+		if found && matches {
+			return "verified"
+		}
+	}
 	matches := []page.Action{}
 	for _, candidate := range after.Actions {
 		if fmt.Sprint(candidate.Node) == fmt.Sprint(action.Node) && candidate.Kind == action.Kind && candidate.Label == action.Label {
@@ -18,10 +32,6 @@ func ActionOutcome(action page.Action, text *string, before, after page.Page) st
 		switch action.Kind {
 		case "fill":
 			if text != nil && next.Value == *text {
-				return "verified"
-			}
-		case "select":
-			if next.CurrentValue == action.Value {
 				return "verified"
 			}
 		case "click":

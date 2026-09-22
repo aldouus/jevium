@@ -35,3 +35,20 @@ func TestStopsRepeatedToggleCycle(t *testing.T) {
 		t.Fatal("new transition mistaken for cycle")
 	}
 }
+
+func TestSelectionVerifiedAfterChosenOptionDisappears(t *testing.T) {
+	action := page.Action{Node: "country", Kind: "select", Label: "Country → Canada", Value: "Canada", CurrentValue: "France"}
+	before := page.WithFingerprint(page.Page{Actions: []page.Action{action}})
+	after := page.WithFingerprint(page.Page{Actions: []page.Action{
+		{Node: "country", Kind: "select", Label: "Country → France", Value: "France", CurrentValue: "Canada"},
+		{Node: "country", Kind: "select", Label: "Country → Italy", Value: "Italy", CurrentValue: "Canada"},
+	}})
+	if got := ActionOutcome(action, nil, before, after); got != "verified" {
+		t.Fatalf("select outcome = %s", got)
+	}
+	after.Actions[1].CurrentValue = "Italy"
+	after = page.WithFingerprint(after)
+	if got := ActionOutcome(action, nil, before, after); got == "verified" {
+		t.Fatal("inconsistent state verified")
+	}
+}
