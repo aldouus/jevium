@@ -69,7 +69,14 @@ func ExpectationsMatch(expectations []Expectation, p page.Page) bool {
 			// An ambiguous label cannot establish the requested outcome.
 			nodes := map[string]page.Action{}
 			for _, a := range p.Actions {
-				if a.Label == e.Label {
+				label := a.Label
+				if a.Kind == "select" {
+					label = strings.Split(a.Label, " → ")[0]
+				}
+				if e.Field == "value" && a.Kind != "fill" && a.Kind != "select" {
+					continue
+				}
+				if label == e.Label {
 					nodes[fmt.Sprint(a.Node)] = a
 				}
 			}
@@ -79,7 +86,11 @@ func ExpectationsMatch(expectations []Expectation, p page.Page) bool {
 			for _, a := range nodes {
 				switch e.Field {
 				case "value":
-					matched = a.Value == e.Value
+					value := a.Value
+					if a.Kind == "select" {
+						value = a.CurrentValue
+					}
+					matched = value == e.Value
 				case "checked":
 					matched = a.Checked == e.Value
 				case "expanded":

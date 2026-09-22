@@ -43,3 +43,20 @@ func TestRejectInvalidExpectations(t *testing.T) {
 		t.Fatal("missing criteria proved completion")
 	}
 }
+
+func TestValueExpectationUsesCurrentControlValue(t *testing.T) {
+	es := []Expectation{{Field: "value", Label: "Country", Value: "Canada"}}
+	p := page.Page{Actions: []page.Action{{Node: "country", Kind: "select", Label: "Country → Canada", Value: "Canada", CurrentValue: "France"}}}
+	if ExpectationsMatch(es, p) {
+		t.Fatal("offered option mistaken for current value")
+	}
+	p.Actions[0].CurrentValue = "Canada"
+	if !ExpectationsMatch(es, p) {
+		t.Fatal("current select value did not match")
+	}
+	es = []Expectation{{Field: "value", Label: "Search", Value: ""}}
+	p.Actions = []page.Action{{Node: "search", Kind: "click", Label: "Search"}}
+	if ExpectationsMatch(es, p) {
+		t.Fatal("button mistaken for empty editable field")
+	}
+}
