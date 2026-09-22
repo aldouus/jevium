@@ -56,7 +56,7 @@ type HistoryEntry struct {
 }
 
 func (e HistoryEntry) Summary() policy.History {
-	return policy.History{Action: e.Action, Kind: e.Kind, Text: e.Text, PageChanged: e.PageChanged}
+	return policy.History{Action: e.Action, Kind: e.Kind, Text: e.Text, PageChanged: e.PageChanged, Outcome: e.Outcome}
 }
 
 type State struct {
@@ -404,7 +404,7 @@ func (a *Agent) Run() error {
 		}
 		if len(a.State.History) > before {
 			h := a.State.History[len(a.State.History)-1]
-			fmt.Printf("%5d ms  %s %s  %s\n", h.ElapsedMS, h.Operation, h.Action, a.State.Status)
+			fmt.Printf("%5d ms  %s %s  %s  %s\n", h.ElapsedMS, h.Operation, h.Action, h.Outcome, a.State.Status)
 		} else {
 			fmt.Printf("%5d ms  reobserve  %s\n", a.State.ElapsedMS, a.State.Status)
 		}

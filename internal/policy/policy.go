@@ -56,6 +56,7 @@ type Decision struct {
 }
 
 type History struct {
+	Outcome     string `json:"outcome,omitempty"`
 	Action      string `json:"action"`
 	Kind        string `json:"kind"`
 	Text        string `json:"text,omitempty"`
