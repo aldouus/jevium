@@ -298,10 +298,20 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 	actions = append(actions, page.Action{ID: "home", Kind: "home", Label: "Go to Home Screen"})
 	if !hasAlert {
 		for i, area := range scrolls {
-			r := *area.Rect
+			regions := []page.Rect{*area.Rect}
 			for j, child := range scrolls {
 				if j > i && containsRect(*area.Rect, *child.Rect) {
-					r = outsideRect(r, *child.Rect)
+					var remaining []page.Rect
+					for _, region := range regions {
+						remaining = append(remaining, outsideRect(region, *child.Rect)...)
+					}
+					regions = remaining
+				}
+			}
+			var r page.Rect
+			for _, region := range regions {
+				if region.W*region.H > r.W*r.H {
+					r = region
 				}
 			}
 			if r.W < 12 || r.H < 24 {

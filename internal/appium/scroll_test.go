@@ -36,3 +36,26 @@ func TestNestedScrollTargetsExposeSeparateGestureRegions(t *testing.T) {
 		t.Fatalf("child region=%+v", child.Rect)
 	}
 }
+
+func TestParentKeepsUsableStripAfterSeveralChildren(t *testing.T) {
+	const source = `<AppiumAUT>
+  <XCUIElementTypeWindow width="400" height="800">
+    <XCUIElementTypeScrollView name="Page" x="0" y="0" width="400" height="800">
+      <XCUIElementTypeScrollView name="Top" x="100" y="0" width="200" height="100"/>
+      <XCUIElementTypeScrollView name="Bottom" x="0" y="100" width="400" height="700"/>
+    </XCUIElementTypeScrollView>
+  </XCUIElementTypeWindow>
+</AppiumAUT>`
+	p, err := appium.SnapshotFromSource(source, "test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, targets, _ := policy.ActionSpace(p.Actions)
+	if len(targets["SCROLL_DOWN"]) != 3 {
+		t.Fatalf("targets=%v", targets)
+	}
+	parent := targets["SCROLL_DOWN"]["1"]
+	if parent.Rect == nil || parent.Rect.X != 0 || parent.Rect.Y != 0 || parent.Rect.W != 100 || parent.Rect.H != 100 {
+		t.Fatalf("parent=%+v", parent.Rect)
+	}
+}

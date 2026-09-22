@@ -7,10 +7,10 @@ func containsRect(parent, child page.Rect) bool {
 }
 
 // Choose an exposed strip so scrolling a parent does not start in its child.
-func outsideRect(parent, child page.Rect) page.Rect {
+func outsideRect(parent, child page.Rect) []page.Rect {
 	overlap := intersect(child, &parent)
 	if overlap.W <= 0 || overlap.H <= 0 {
-		return parent
+		return []page.Rect{parent}
 	}
 	candidates := []page.Rect{
 		{X: parent.X, Y: parent.Y, W: overlap.X - parent.X, H: parent.H},
@@ -18,11 +18,11 @@ func outsideRect(parent, child page.Rect) page.Rect {
 		{X: parent.X, Y: parent.Y, W: parent.W, H: overlap.Y - parent.Y},
 		{X: parent.X, Y: overlap.Y + overlap.H, W: parent.W, H: parent.Y + parent.H - overlap.Y - overlap.H},
 	}
-	var best page.Rect
+	var regions []page.Rect
 	for _, r := range candidates {
-		if r.W*r.H > best.W*best.H {
-			best = r
+		if r.W >= 12 && r.H >= 24 {
+			regions = append(regions, r)
 		}
 	}
-	return best
+	return regions
 }
