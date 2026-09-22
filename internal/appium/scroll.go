@@ -15,8 +15,8 @@ func outsideRect(parent, child page.Rect) []page.Rect {
 	candidates := []page.Rect{
 		{X: parent.X, Y: parent.Y, W: overlap.X - parent.X, H: parent.H},
 		{X: overlap.X + overlap.W, Y: parent.Y, W: parent.X + parent.W - overlap.X - overlap.W, H: parent.H},
-		{X: parent.X, Y: parent.Y, W: parent.W, H: overlap.Y - parent.Y},
-		{X: parent.X, Y: overlap.Y + overlap.H, W: parent.W, H: parent.Y + parent.H - overlap.Y - overlap.H},
+		{X: overlap.X, Y: parent.Y, W: overlap.W, H: overlap.Y - parent.Y},
+		{X: overlap.X, Y: overlap.Y + overlap.H, W: overlap.W, H: parent.Y + parent.H - overlap.Y - overlap.H},
 	}
 	var regions []page.Rect
 	for _, r := range candidates {
