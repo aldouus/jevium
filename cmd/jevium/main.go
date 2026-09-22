@@ -45,6 +45,9 @@ func run(args []string) error {
 	visualOCR := fs.Bool("visual-ocr", false, "enable local macOS Vision text targets (screenshots stay local)")
 	interactive := fs.Bool("tui", false, "Bubble Tea inspector")
 	scope := fs.String("scope", "all", "allowed controls: all, web, or native")
+	coveragePath := fs.String("coverage", "", "write durable JSON coverage report to this file")
+	var expectedURLs goalList
+	fs.Var(&expectedURLs, "audit-url", "expected page URL, repeatable; unvisited entries remain explicit")
 	var goals goalList
 	var fixtures goalList
 	var retrievals goalList
@@ -134,6 +137,13 @@ func run(args []string) error {
 		return err
 	}
 	defer a.Close()
+	if *coveragePath != "" {
+		if err := a.EnableCoverage(*coveragePath, expectedURLs); err != nil {
+			return err
+		}
+	} else if len(expectedURLs) > 0 {
+		return fmt.Errorf("--audit-url requires --coverage")
+	}
 	if *interactive {
 		err = tui.Run(a)
 	} else {

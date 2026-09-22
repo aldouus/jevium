@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -73,14 +74,16 @@ type State struct {
 }
 
 type Agent struct {
-	Surface     Surface
-	Chooser     Chooser
-	Screenshots bool
-	RecordDir   string
-	VerifyDone  DoneCheck
-	State       State
-	pending     *pendingText
-	failedDone  int
+	Coverage     *Coverage
+	CoveragePath string
+	Surface      Surface
+	Chooser      Chooser
+	Screenshots  bool
+	RecordDir    string
+	VerifyDone   DoneCheck
+	State        State
+	pending      *pendingText
+	failedDone   int
 }
 
 type pendingText struct {
@@ -204,7 +207,17 @@ func (a *Agent) done(p page.Page) bool {
 	return fn(a.State.Goal, p)
 }
 
-func (a *Agent) Command(name string, fingerprint string) error {
+func (a *Agent) Command(name string, fingerprint string) (result error) {
+	defer func() {
+		if a.Coverage == nil {
+			return
+		}
+		a.Coverage.Observe(a.State.Page)
+		a.Coverage.Status = a.State.Status
+		if err := a.saveCoverage(); err != nil {
+			result = errors.Join(result, err)
+		}
+	}()
 	switch name {
 	case "tick":
 		err := a.Command("predict", "")
@@ -326,6 +339,12 @@ func (a *Agent) Command(name string, fingerprint string) error {
 				return stale.Error{Msg: "page changed before typing. Observe again"}
 			}
 		}
+		if a.Coverage != nil {
+			a.Coverage.Attempt(p, action)
+			if err := a.saveCoverage(); err != nil {
+				return err
+			}
+		}
 		if err := a.Surface.Act(action, p, text); err != nil {
 			return err
 		}
@@ -353,6 +372,9 @@ func (a *Agent) Command(name string, fingerprint string) error {
 			return err
 		}
 		changed := next.Fingerprint != p.Fingerprint
+		if a.Coverage != nil {
+			a.Coverage.Result(p, action, next, text)
+		}
 		a.State.Page = next
 		a.State.ElapsedMS = a.elapsed()
 		a.State.History[len(a.State.History)-1].PageChanged = &changed
