@@ -285,6 +285,14 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		return StalePageError{Msg: "Screen changed since this decision. Observe again."}
 	}
 	switch action.Kind {
+	case "key_backspace", "key_left", "key_right", "key_return":
+		keys := map[string]string{"key_backspace": "\uE003", "key_left": "\uE012", "key_right": "\uE014", "key_return": "\uE006"}
+		return d.typeText(keys[action.Kind])
+	case "clear_text":
+		if err := d.click(action); err != nil {
+			return err
+		}
+		return d.clearActiveField(action)
 	case "wait":
 		time.Sleep(100 * time.Millisecond)
 		return nil
@@ -323,8 +331,14 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		if err != nil {
 			return err
 		}
-		if _, ok := fieldByLabel(current, action.Label); !ok {
+		field, ok := fieldByLabel(current, action.Label)
+		if !ok {
 			return fmt.Errorf("field %q is gone after tap; not retrying", action.Label)
+		}
+		if action.Value != "" {
+			if err := d.clearActiveField(field); err != nil {
+				return err
+			}
 		}
 		return d.typeText(*text)
 	case "select":
@@ -342,6 +356,25 @@ func (d *Device) click(action page.Action) error {
 		return err
 	}
 	return d.tap(x, y)
+}
+
+func (d *Device) clearActiveField(action page.Action) error {
+	var element map[string]string
+	if err := d.call(http.MethodGet, d.path("/element/active"), nil, &element); err != nil {
+		return err
+	}
+	id := element["element-6066-11e4-a52e-4f735466cecf"]
+	if id == "" {
+		return DeviceError{Msg: "Focused field has no element reference; text was not cleared"}
+	}
+	var rect windowRect
+	if err := d.call(http.MethodGet, d.path("/element/"+id+"/rect"), nil, &rect); err != nil {
+		return err
+	}
+	if action.Rect == nil || rect.X != action.Rect.X || rect.Y != action.Rect.Y || rect.Width != action.Rect.W || rect.Height != action.Rect.H {
+		return DeviceError{Msg: "Focused field does not match observed target; text was not cleared"}
+	}
+	return d.call(http.MethodPost, d.path("/element/"+id+"/clear"), struct{}{}, nil)
 }
 
 func (d *Device) typeText(text string) error {

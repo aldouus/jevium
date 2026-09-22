@@ -73,10 +73,10 @@ type PageView struct {
 }
 
 type FieldInput struct {
-	Goal           string    `json:"goal"`
-	Field          Field     `json:"field"`
-	Page           PageView  `json:"page"`
-	RecentActions  []History `json:"recent_actions"`
+	Goal          string    `json:"goal"`
+	Field         Field     `json:"field"`
+	Page          PageView  `json:"page"`
+	RecentActions []History `json:"recent_actions"`
 }
 
 type TextHelper struct {
@@ -153,9 +153,14 @@ func ValidateChoice(answer ChoiceAnswer, ids map[string]struct{}) error {
 }
 
 var kindOps = map[string]string{
-	"click":  "CLICK",
-	"fill":   "TYPE_TEXT",
-	"select": "SELECT",
+	"clear_text":    "CLEAR_TEXT",
+	"key_backspace": "BACKSPACE",
+	"key_left":      "CURSOR_LEFT",
+	"key_right":     "CURSOR_RIGHT",
+	"key_return":    "RETURN",
+	"click":         "CLICK",
+	"fill":          "TYPE_TEXT",
+	"select":        "SELECT",
 }
 
 func ActionSpace(actions []page.Action) ([]Element, map[string]map[string]page.Action, map[string]page.Action) {
@@ -233,9 +238,14 @@ func (c Client) Choose(state page.Page, goal string, history []History) (Decisio
 	}
 	elements, targets, controls := ActionSpace(state.Actions)
 	labels := map[string]string{
-		"CLICK":     "Click an element, button, menu option, autocomplete suggestion, or calendar day.",
-		"TYPE_TEXT": "Enter or replace text in an editable field. A small LLM will supply the value from the goal.",
-		"SELECT":    "Select an observed dropdown value.",
+		"CLEAR_TEXT":   "Clear all text in the observed field.",
+		"BACKSPACE":    "Delete one character before the focused cursor.",
+		"CURSOR_LEFT":  "Move the focused cursor one character left.",
+		"CURSOR_RIGHT": "Move the focused cursor one character right.",
+		"RETURN":       "Press Return in the focused field; this may submit the form.",
+		"CLICK":        "Click an element, button, menu option, autocomplete suggestion, or calendar day.",
+		"TYPE_TEXT":    "Enter or replace text in an editable field. A small LLM will supply the value from the goal.",
+		"SELECT":       "Select an observed dropdown value.",
 	}
 	operations := map[string]any{}
 	for key := range targets {
@@ -506,7 +516,7 @@ func (c Client) FieldText(context FieldInput) (string, TextHelper, error) {
 		return "", TextHelper{}, fmt.Errorf("text helper returned no valid field value; nothing typed")
 	}
 	return text, TextHelper{
-		Model:      modelName,
+		Model:     modelName,
 		LatencyMS: int(time.Since(started).Milliseconds()),
 		Usage:     result.Usage,
 	}, nil

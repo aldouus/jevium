@@ -211,6 +211,16 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 						fill := base
 						fill.Kind = "fill"
 						actions = append(actions, fill)
+						clear := base
+						clear.Kind = "clear_text"
+						actions = append(actions, clear)
+						if n.boolAttr("focused", false) {
+							for _, key := range []string{"backspace", "left", "right", "return"} {
+								edit := base
+								edit.Kind = "key_" + key
+								actions = append(actions, edit)
+							}
+						}
 						open := base
 						open.Kind = "click"
 						open.Label = "Open " + label
