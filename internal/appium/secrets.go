@@ -7,13 +7,6 @@ import (
 )
 
 func (d *Device) secretSnapshot(source string) (page.Page, error) {
-	p, err := snapshotFromSource(source, d.cfg.BundleID, nil, true)
-	if err != nil {
-		return p, err
-	}
-	if len(d.cfg.SecretFields) > 0 {
-		p.Source = ""
-	}
 	redact := func(s string) string {
 		for _, ref := range d.cfg.SecretFields {
 			if secret := os.Getenv(ref); secret != "" {
@@ -21,6 +14,13 @@ func (d *Device) secretSnapshot(source string) (page.Page, error) {
 			}
 		}
 		return s
+	}
+	p, err := snapshotFromSource(source, d.cfg.BundleID, nil, true, redact)
+	if err != nil {
+		return p, err
+	}
+	if len(d.cfg.SecretFields) > 0 {
+		p.Source = ""
 	}
 	actions := make([]page.Action, 0, len(p.Actions))
 	counts := map[string]int{}

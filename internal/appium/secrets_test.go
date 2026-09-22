@@ -48,7 +48,7 @@ func TestSecretEntryVerifiesFocusAndRedactsDriverErrors(t *testing.T) {
   <XCUIElementTypeSecureTextField name="Password" label="Password"
     x="20.5" y="30" width="200" height="40"/>
 </AppiumAUT>`
-	for _, active := range []string{"field", "other"} {
+	for _, active := range []string{"field", "other", "after-clear"} {
 		t.Run(active, func(t *testing.T) {
 			cleared, typed := 0, 0
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +67,14 @@ func TestSecretEntryVerifiesFocusAndRedactsDriverErrors(t *testing.T) {
 				case strings.HasSuffix(r.URL.Path, "/rect"):
 					value = map[string]float64{"x": 20.5, "y": 30, "width": 200, "height": 40}
 				case strings.HasSuffix(r.URL.Path, "/element/active"):
-					value = map[string]string{"element-6066-11e4-a52e-4f735466cecf": active}
+					focused := active
+					if active == "after-clear" {
+						focused = "field"
+						if cleared > 0 {
+							focused = "other"
+						}
+					}
+					value = map[string]string{"element-6066-11e4-a52e-4f735466cecf": focused}
 				case strings.HasSuffix(r.URL.Path, "/clear"):
 					cleared++
 				case strings.HasSuffix(r.URL.Path, "/actions"):
@@ -99,7 +106,11 @@ func TestSecretEntryVerifiesFocusAndRedactsDriverErrors(t *testing.T) {
 			if active == "field" {
 				want = 1
 			}
-			if cleared != want || typed != want {
+			wantClear := want
+			if active == "after-clear" {
+				wantClear = 1
+			}
+			if cleared != wantClear || typed != want {
 				t.Fatalf("cleared=%d typed=%d want=%d", cleared, typed, want)
 			}
 		})
@@ -124,6 +135,26 @@ func TestDuplicateSecretLabelsAreExcluded(t *testing.T) {
 	_, targets, _ := policy.ActionSpace(p.Actions)
 	if len(targets["TYPE_SECRET"]) != 0 {
 		t.Fatalf("ambiguous targets=%v", targets)
+	}
+}
+
+func TestSecretIsRedactedBeforeTextTruncation(t *testing.T) {
+	t.Setenv("TEST_PASSWORD", "private-password-value")
+	source := `<AppiumAUT><XCUIElementTypeStaticText x="0" y="0" width="200" height="40" label="` + strings.Repeat("x", 5990) + `private-password-value"/></AppiumAUT>`
+	srv, _ := mockAppium(t, source, nil)
+	d, err := appium.New(appium.Config{URL: srv.URL, UDID: "test", HTTP: srv.Client(), SecretFields: map[string]string{"Password": "TEST_PASSWORD"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := d.Observe(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(p.Text, "private") {
+		t.Fatal("partial secret leaked at text boundary")
+	}
+	if p.Text != strings.Repeat("x", 5990)+"[redacted]" {
+		t.Fatalf("redacted text length=%d", len(p.Text))
 	}
 }
 

@@ -361,6 +361,10 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		if err := d.call(http.MethodPost, d.path("/element/"+id+"/clear"), struct{}{}, nil); err != nil {
 			return DeviceError{Msg: "Could not clear secret field; not retrying"}
 		}
+		var afterClear map[string]string
+		if err := d.call(http.MethodGet, d.path("/element/active"), nil, &afterClear); err != nil || afterClear["element-6066-11e4-a52e-4f735466cecf"] != id {
+			return DeviceError{Msg: "Secret field lost focus after clearing; not retrying"}
+		}
 		if err := d.typeText(os.Getenv(ref)); err != nil {
 			return DeviceError{Msg: "Secret entry failed; not retrying"}
 		}

@@ -126,10 +126,10 @@ func walk(n node, fn func(node)) {
 }
 
 func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, error) {
-	return snapshotFromSource(source, bundleID, window, false)
+	return snapshotFromSource(source, bundleID, window, false, nil)
 }
 
-func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool) (page.Page, error) {
+func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool, redact func(string) string) (page.Page, error) {
 	dec := xml.NewDecoder(strings.NewReader(source))
 	dec.CharsetReader = func(_ string, input io.Reader) (io.Reader, error) { return input, nil }
 	var root node
@@ -210,6 +210,9 @@ func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool
 		visiblePart := intersect(r, clip)
 		if _, ok := textTypes[kind]; ok && n.visible() && visiblePart.W > 0 && visiblePart.H > 0 {
 			if t := n.attr("value", "label", "name"); t != "" {
+				if redact != nil {
+					t = redact(t)
+				}
 				words = append(words, t)
 			}
 		}
