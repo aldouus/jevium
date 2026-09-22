@@ -170,7 +170,7 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 	actions := []page.Action{}
 	fullyVisible := map[any]bool{}
 	words := []string{}
-	var scrollRect *page.Rect
+	var scrolls []page.Action
 	nextID := 1
 	identity := map[*node]string{}
 	var assign func(*node) string
@@ -190,8 +190,8 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 		if (scrollContainer(kind) || kind == "XCUIElementTypeWindow") && r.W > 0 && r.H > 0 {
 			bounds := intersect(r, clip)
 			clip = &bounds
-			if scrollContainer(kind) && n.visible() && n.boolAttr("hittable", true) && bounds.W > 0 && bounds.H > 0 && scrollRect == nil {
-				scrollRect = &bounds
+			if scrollContainer(kind) && n.visible() && n.boolAttr("hittable", true) && bounds.W > 0 && bounds.H > 0 {
+				scrolls = append(scrolls, page.Action{Node: kind + ":" + n.attr("name") + ":" + strconv.Itoa(len(scrolls)+1), Label: n.label(), Role: "scrollarea", Rect: &bounds})
 			}
 		}
 		visiblePart := intersect(r, clip)
@@ -296,11 +296,33 @@ func SnapshotFromSource(source, bundleID string, window *page.Rect) (page.Page, 
 	}
 	actions = append(actions, page.Action{ID: "wait", Kind: "wait", Label: "Wait for the screen to update"})
 	actions = append(actions, page.Action{ID: "home", Kind: "home", Label: "Go to Home Screen"})
-	if scrollRect != nil && !hasAlert {
-		actions = append(actions,
-			page.Action{ID: "scroll_down", Kind: "scroll", Label: "Scroll down to reveal content below", Direction: "up", Rect: scrollRect},
-			page.Action{ID: "scroll_up", Kind: "scroll", Label: "Scroll up to reveal content above", Direction: "down", Rect: scrollRect},
-		)
+	if !hasAlert {
+		for i, area := range scrolls {
+			r := *area.Rect
+			for j, child := range scrolls {
+				if j > i && containsRect(*area.Rect, *child.Rect) {
+					r = outsideRect(r, *child.Rect)
+				}
+			}
+			if r.W < 12 || r.H < 24 {
+				continue
+			}
+			area.Rect = &r
+			suffix := ""
+			if i > 0 {
+				suffix = strconv.Itoa(i + 1)
+			}
+			for _, direction := range []string{"up", "down"} {
+				a := area
+				a.Kind = "scroll"
+				a.Direction = direction
+				a.ID = "scroll_down" + suffix
+				if direction == "down" {
+					a.ID = "scroll_up" + suffix
+				}
+				actions = append(actions, a)
+			}
+		}
 	}
 	if hasAlert {
 		actions = append(actions,

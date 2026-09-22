@@ -174,6 +174,13 @@ func ActionSpace(actions []page.Action) ([]Element, map[string]map[string]page.A
 	controls := map[string]page.Action{}
 	for _, action := range actions {
 		op, ok := kindOps[action.Kind]
+		if action.Kind == "scroll" && action.Node != nil {
+			ok = true
+			op = "SCROLL_DOWN"
+			if action.Direction == "down" {
+				op = "SCROLL_UP"
+			}
+		}
 		if !ok {
 			controls[strings.ToUpper(action.ID)] = action
 			continue
@@ -242,7 +249,9 @@ func (c Client) Choose(state page.Page, goal string, history []History) (Decisio
 	}
 	elements, targets, controls := ActionSpace(state.Actions)
 	labels := map[string]string{
-		"LONG_PRESS": "Hold the observed target for one second.", "DOUBLE_TAP": "Double tap the observed target.", "SWIPE_LEFT": "Swipe left inside the observed target.", "SWIPE_RIGHT": "Swipe right inside the observed target.", "DRAG": "Drag an observed source to an observed destination.", "PINCH_IN": "Pinch closed inside the observed target.", "PINCH_OUT": "Pinch open inside the observed target.", "SET_SLIDER": "Move an observed slider toward the indicated percentage of its track.",
+		"SCROLL_DOWN": "Scroll the selected observed container to reveal content below.",
+		"SCROLL_UP":   "Scroll the selected observed container to reveal content above.",
+		"LONG_PRESS":  "Hold the observed target for one second.", "DOUBLE_TAP": "Double tap the observed target.", "SWIPE_LEFT": "Swipe left inside the observed target.", "SWIPE_RIGHT": "Swipe right inside the observed target.", "DRAG": "Drag an observed source to an observed destination.", "PINCH_IN": "Pinch closed inside the observed target.", "PINCH_OUT": "Pinch open inside the observed target.", "SET_SLIDER": "Move an observed slider toward the indicated percentage of its track.",
 		"PICKER_NEXT":     "Move the observed picker wheel to its next value.",
 		"PICKER_PREVIOUS": "Move the observed picker wheel to its previous value.",
 		"SELECT_ALL":      "Select all text in the focused field using Command+A.",

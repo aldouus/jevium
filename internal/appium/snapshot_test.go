@@ -258,9 +258,12 @@ func TestWebViewOffersScrollOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, controls := policy.ActionSpace(p.Actions)
+	_, targets, _ := policy.ActionSpace(p.Actions)
 	for operation, direction := range map[string]string{"SCROLL_DOWN": "up", "SCROLL_UP": "down"} {
-		a, ok := controls[operation]
+		if len(targets[operation]) != 1 {
+			t.Fatalf("%s targets=%v", operation, targets[operation])
+		}
+		a, ok := targets[operation]["1"]
 		if !ok || a.Kind != "scroll" || a.Direction != direction {
 			t.Fatalf("%s: action=%+v found=%v", operation, a, ok)
 		}
