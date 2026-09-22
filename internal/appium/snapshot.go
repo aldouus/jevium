@@ -297,7 +297,12 @@ func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool
 						checked := n.attr("value")
 						click := base
 						click.Kind = "click"
-						click.Checked = strconv.FormatBool(checked == "1" || strings.EqualFold(checked, "true"))
+						switch strings.ToLower(checked) {
+						case "1", "true":
+							click.Checked = "true"
+						case "0", "false":
+							click.Checked = "false"
+						}
 						actions = append(actions, click)
 					case has(clickTypes, kind), kind == "XCUIElementTypeOther" && n.boolAttr("accessible", false):
 						click := base

@@ -96,8 +96,11 @@ func ExpectationsMatch(expectations []Expectation, p page.Page) bool {
 				case "expanded":
 					matched = a.Expanded == e.Value
 				case "selected":
-					if v, ok := a.Selected.(bool); ok {
+					switch v := a.Selected.(type) {
+					case bool:
 						matched = fmt.Sprint(v) == e.Value
+					case string:
+						matched = (v == "true" || v == "false") && v == e.Value
 					}
 				}
 			}
