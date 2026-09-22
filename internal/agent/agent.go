@@ -33,6 +33,9 @@ type Chooser interface {
 type DoneCheck func(goal string, p page.Page) bool
 
 type HistoryEntry struct {
+	Outcome       string         `json:"outcome"`
+	Before        string         `json:"before_fingerprint"`
+	After         string         `json:"after_fingerprint,omitempty"`
 	Step          int            `json:"step"`
 	Action        string         `json:"action"`
 	Kind          string         `json:"kind"`
@@ -338,6 +341,7 @@ func (a *Agent) Command(name string, fingerprint string) error {
 			textVal = *text
 		}
 		entry := HistoryEntry{
+			Outcome: "unverified", Before: p.Fingerprint,
 			Step: len(a.State.History) + 1, Action: action.Label, Kind: action.Kind, Choice: d.Choice,
 			Probability: prob, Confidence: d.Confidence, LatencyMS: d.LatencyMS, Text: textVal,
 			TextHelper: helper.Model, TextLatencyMS: helper.LatencyMS, Operation: d.Operation, Target: d.Target,
@@ -352,6 +356,8 @@ func (a *Agent) Command(name string, fingerprint string) error {
 		a.State.Page = next
 		a.State.ElapsedMS = a.elapsed()
 		a.State.History[len(a.State.History)-1].PageChanged = &changed
+		a.State.History[len(a.State.History)-1].After = next.Fingerprint
+		a.State.History[len(a.State.History)-1].Outcome = ActionOutcome(action, text, p, next)
 		a.State.History[len(a.State.History)-1].URL = next.URL
 		a.State.History[len(a.State.History)-1].ElapsedMS = a.State.ElapsedMS
 		if a.State.Record && next.Screenshot != "" {
@@ -365,6 +371,10 @@ func (a *Agent) Command(name string, fingerprint string) error {
 			return nil
 		}
 		h := a.State.History
+		if RepeatedCycle(h) {
+			a.State.Status = "blocked"
+			return nil
+		}
 		if len(h) >= 3 {
 			tail := h[len(h)-3:]
 			stuck := true
