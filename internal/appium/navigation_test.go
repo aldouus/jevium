@@ -38,6 +38,16 @@ func TestConfiguredNavigation(t *testing.T) {
 	}
 	var scripts []string
 	for _, c := range *calls {
+		if c.Body["script"] == "mobile: deepLink" {
+			args := c.Body["args"].([]any)
+			if len(args) != 1 {
+				t.Fatalf("deep link args=%v", args)
+			}
+			arg := args[0].(map[string]any)
+			if arg["url"] != "https://example.test/path" || arg["bundleId"] != "com.apple.mobilesafari" {
+				t.Fatalf("deep link=%v", arg)
+			}
+		}
 		if s, ok := c.Body["script"].(string); ok && s != "mobile: activeAppInfo" {
 			scripts = append(scripts, s)
 		}

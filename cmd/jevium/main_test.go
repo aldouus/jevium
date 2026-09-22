@@ -5,6 +5,13 @@ import (
 	"testing"
 )
 
+func TestRejectAppiumOnlyOptionInChrome(t *testing.T) {
+	err := run([]string{"--mode", "chrome", "--allow-app=com.example.app"})
+	if err == nil || err.Error() != "--allow-app requires appium mode" {
+		t.Fatalf("error=%v", err)
+	}
+}
+
 func TestRunAppiumMissingUDID(t *testing.T) {
 	t.Setenv("TYPESAFE_API_KEY", "test")
 	t.Setenv("APPIUM_UDID", "")
