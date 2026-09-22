@@ -20,6 +20,7 @@ func TestReplaceClearsObservedActiveFieldBeforeTyping(t *testing.T) {
   <XCUIElementTypeKeyboard x="0" y="400" width="375" height="300"/>
 </AppiumAUT>`
 	var mutations []string
+	var nativeKeys []any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var value any
 		switch {
@@ -36,7 +37,13 @@ func TestReplaceClearsObservedActiveFieldBeforeTyping(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/rect"):
 			value = map[string]int{"x": 20, "y": 30, "width": 200, "height": 40}
 		case strings.HasSuffix(r.URL.Path, "/execute/sync"):
-			mutations = append(mutations, "tap")
+			var body map[string]any
+			json.NewDecoder(r.Body).Decode(&body)
+			if body["script"] == "mobile: keys" {
+				nativeKeys = body["args"].([]any)
+			} else {
+				mutations = append(mutations, "tap")
+			}
 		case strings.HasSuffix(r.URL.Path, "/clear"):
 			mutations = append(mutations, "clear")
 		case strings.HasSuffix(r.URL.Path, "/actions"):
@@ -69,6 +76,15 @@ func TestReplaceClearsObservedActiveFieldBeforeTyping(t *testing.T) {
 	}
 	if !reflect.DeepEqual(mutations, []string{"tap", "clear", "type"}) {
 		t.Fatalf("mutations=%v", mutations)
+	}
+	for _, a := range targets["CURSOR_LEFT"] {
+		if err := d.Act(a, p, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	wantKeys := []any{map[string]any{"elementId": "field", "keys": []any{"XCUIKeyboardKeyLeftArrow"}}}
+	if !reflect.DeepEqual(nativeKeys, wantKeys) {
+		t.Fatalf("native keys=%v", nativeKeys)
 	}
 }
 
