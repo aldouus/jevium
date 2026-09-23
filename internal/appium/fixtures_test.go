@@ -99,3 +99,26 @@ func TestFixtureVerificationMismatchDoesNotRepush(t *testing.T) {
 		t.Fatalf("push count=%d", pushes)
 	}
 }
+
+func TestFixtureVerificationBoundsResponseBeforeDecoding(t *testing.T) {
+	pushes := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var value any
+		if strings.HasSuffix(r.URL.Path, "/push_file") {
+			pushes++
+		}
+		if strings.HasSuffix(r.URL.Path, "/pull_file") {
+			value = strings.Repeat("A", 8192)
+		}
+		json.NewEncoder(w).Encode(map[string]any{"value": value})
+	}))
+	defer srv.Close()
+	d := Device{cfg: Config{URL: srv.URL}, sessionID: "session", http: srv.Client()}
+	err := d.provision([]loadedFixture{{Fixture: Fixture{RemotePath: "@com.example.files:documents/file"}, data: []byte("small fixture")}})
+	if err == nil || err.Error() != "fixture pushed but verification failed: Appium response exceeds artifact size limit" {
+		t.Fatalf("error=%v", err)
+	}
+	if pushes != 1 {
+		t.Fatalf("push count=%d", pushes)
+	}
+}

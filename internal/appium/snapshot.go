@@ -244,7 +244,12 @@ func snapshotFromSource(source, bundleID string, window *page.Rect, secrets bool
 						base.Role = "button"
 					}
 					control := page.Control{Node: nodeID, Label: label, Expanded: n.attr("expanded")}
-					if has(fillTypes, kind) || has(selectTypes, kind) {
+					switch selected := strings.ToLower(n.attr("selected")); selected {
+					case "true", "false":
+						control.Selected = selected
+						base.Selected = selected
+					}
+					if has(fillTypes, kind) || has(selectTypes, kind) || kind == "XCUIElementTypeSlider" {
 						for _, attr := range n.Attrs {
 							if attr.Name.Local == "value" {
 								value := attr.Value

@@ -10,13 +10,13 @@ import (
 type fixtureKind string
 
 type fixtureNode struct {
-	Kind                                      fixtureKind
-	Name, Label, Value, BundleID, Values      string
-	Rect                                      page.Rect
-	Hidden, Disabled, NotHittable, Accessible bool
-	AnimationTick                             string
-	Children                                  []fixtureNode
-	ValuePresent                              bool
+	Kind                                           fixtureKind
+	Name, Label, Value, BundleID, Values, Selected string
+	Rect                                           page.Rect
+	Hidden, Disabled, NotHittable, Accessible      bool
+	AnimationTick                                  string
+	Children                                       []fixtureNode
+	ValuePresent                                   bool
 }
 
 func (n fixtureNode) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
@@ -29,6 +29,7 @@ func (n fixtureNode) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
 	attr("name", n.Name)
 	attr("label", n.Label)
 	attr("value", n.Value)
+	attr("selected", n.Selected)
 	if n.ValuePresent && n.Value == "" {
 		start.Attr = append(start.Attr, xml.Attr{Name: xml.Name{Local: "value"}, Value: ""})
 	}

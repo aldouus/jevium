@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/aldous/jevium/internal/agent"
@@ -157,6 +158,9 @@ func run(args []string) (runErr error) {
 			}
 			cfg := deviceConfig
 			cfg.Retrievals = jobs[i].Retrievals
+			if err := validateOutputs(jobs[i].Directory, filepath.Join(jobs[i].Directory, "state.json"), jobs[i].Coverage, cfg.Retrievals); err != nil {
+				return err
+			}
 			if err := appium.ValidateConfig(cfg); err != nil {
 				return err
 			}
@@ -169,6 +173,9 @@ func run(args []string) (runErr error) {
 			return err
 		}
 		return runDevices(jobs, executable, *appiumURL, *bundle, goals, os.Stdout, runDeviceProcess, childArgs...)
+	}
+	if err := validateOutputs(*record, *resultFile, *coveragePath, deviceConfig.Retrievals); err != nil {
+		return err
 	}
 	if _, err := env.Require("TYPESAFE_API_KEY", "to call TypeSafe Jev"); err != nil {
 		return err

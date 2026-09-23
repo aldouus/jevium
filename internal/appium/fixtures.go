@@ -85,10 +85,14 @@ func (d *Device) provision(fixtures []loadedFixture) error {
 			return fmt.Errorf("fixture push failed (not retried): %w", err)
 		}
 		var encoded string
-		if err := d.call(http.MethodPost, d.path("/appium/device/pull_file"), map[string]string{"path": f.RemotePath}, &encoded); err != nil {
+		encodedSize := base64.StdEncoding.EncodedLen(len(f.data))
+		if err := d.callLimited(http.MethodPost, d.path("/appium/device/pull_file"), map[string]string{"path": f.RemotePath}, &encoded, int64(encodedSize+4096)); err != nil {
 			return fmt.Errorf("fixture pushed but verification failed: %w", err)
 		}
-		received, err := base64.StdEncoding.DecodeString(encoded)
+		if len(encoded) != encodedSize {
+			return fmt.Errorf("fixture pushed but device bytes did not match local fixture")
+		}
+		received, err := base64.StdEncoding.Strict().DecodeString(encoded)
 		if err != nil || !bytes.Equal(received, f.data) {
 			return fmt.Errorf("fixture pushed but device bytes did not match local fixture")
 		}

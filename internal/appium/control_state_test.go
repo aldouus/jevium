@@ -24,3 +24,31 @@ func TestPickerCurrentStateWithoutOfferedOptions(t *testing.T) {
 		}
 	}
 }
+
+func TestNativeSelectedStateAndSliderValueAreObservable(t *testing.T) {
+	tab := fixtureNode{Kind: "Tab", Label: "Profile", Selected: "false", Rect: bounds(0, 0, 80, 40)}
+	slider := fixtureNode{Kind: "Slider", Label: "Volume", Value: "50%", Rect: bounds(0, 50, 200, 40)}
+	before, err := appium.SnapshotFromSource(screen(tab, slider), "app", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !agent.ExpectationsMatch([]agent.Expectation{{Field: "selected", Label: "Profile", Value: "false"}, {Field: "value", Label: "Volume", Value: "50%"}}, before) {
+		t.Fatal("observed tab selection and slider value did not satisfy completion")
+	}
+	tab.Selected = "true"
+	after, err := appium.SnapshotFromSource(screen(tab, slider), "app", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.Fingerprint == after.Fingerprint || !agent.ExpectationsMatch([]agent.Expectation{{Field: "selected", Label: "Profile", Value: "true"}}, after) {
+		t.Fatal("selection change was not observed")
+	}
+	tab.Selected = ""
+	unknown, err := appium.SnapshotFromSource(screen(tab), "app", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if agent.ExpectationsMatch([]agent.Expectation{{Field: "selected", Label: "Profile", Value: "false"}}, unknown) {
+		t.Fatal("missing selection mistaken for false")
+	}
+}
