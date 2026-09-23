@@ -100,7 +100,7 @@ func RepeatedCycle(h []HistoryEntry) bool {
 		repeated := true
 		for i, e := range tail {
 			ref := tail[i%period]
-			if e.Kind == "wait" || e.Before == "" || e.After == "" || e.Before != ref.Before || e.After != ref.After || e.Kind != ref.Kind || e.Action != ref.Action {
+			if progressMayBeInvisible(e.Kind) || e.Before == "" || e.After == "" || e.Before != ref.Before || e.After != ref.After || e.Kind != ref.Kind || e.Action != ref.Action {
 				repeated = false
 				break
 			}
@@ -110,4 +110,13 @@ func RepeatedCycle(h []HistoryEntry) bool {
 		}
 	}
 	return false
+}
+
+func progressMayBeInvisible(kind string) bool {
+	switch kind {
+	case "wait", "key_left", "key_right", "key_select_all", "key_select_left", "key_select_right":
+		return true
+	default:
+		return false
+	}
 }

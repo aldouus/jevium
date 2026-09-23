@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/aldous/jevium/internal/page"
+	"github.com/aldous/jevium/internal/policy"
 	"github.com/aldous/jevium/internal/visual"
 	"image"
 	"image/color"
@@ -67,6 +68,11 @@ func TestVisualTargetsUseObservedFrameAndRejectChangedPixels(t *testing.T) {
 	a, ok := page.FindAction(p.Actions, "visual_0")
 	if !ok {
 		t.Fatal("missing observed OCR target")
+	}
+	for _, scope := range []string{"web", "native"} {
+		if _, ok := page.FindAction(policy.ScopedActions(p, scope), a.ID); ok {
+			t.Fatalf("%s scope accepted OCR target with unknown content provenance", scope)
+		}
 	}
 	if err := d.Act(a, p, nil); err != nil {
 		t.Fatal(err)

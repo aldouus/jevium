@@ -34,6 +34,9 @@ func gestureActions(actions []page.Action, fullyVisible map[any]bool) ([]page.Ac
 			}
 			g := from
 			g.Kind = "drag"
+			if from.Scope != to.Scope {
+				g.Scope = "mixed"
+			}
 			g.Label = from.Label + " → " + to.Label
 			g.Node = fmt.Sprint(from.Node) + "->" + fmt.Sprint(to.Node)
 			g.Destination = to.Rect

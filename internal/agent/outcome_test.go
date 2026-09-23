@@ -36,6 +36,20 @@ func TestStopsRepeatedToggleCycle(t *testing.T) {
 	}
 }
 
+func TestRepeatedCursorAndSelectionActionsAreNotCycles(t *testing.T) {
+	for _, kind := range []string{"key_left", "key_right", "key_select_all", "key_select_left", "key_select_right"} {
+		t.Run(kind, func(t *testing.T) {
+			history := make([]HistoryEntry, 12)
+			for i := range history {
+				history[i] = HistoryEntry{Kind: kind, Action: "Address", Before: "same", After: "same"}
+			}
+			if RepeatedCycle(history) {
+				t.Fatal("unobserved cursor or selection progress treated as a cycle")
+			}
+		})
+	}
+}
+
 func TestSelectionVerifiedAfterChosenOptionDisappears(t *testing.T) {
 	action := page.Action{Node: 7, Kind: "select", Label: "Country → Canada", Value: "ca", CurrentValue: "fr"}
 	before := page.WithFingerprint(page.Page{URL: "https://example.test", PageKey: []any{1}, Actions: []page.Action{action}})

@@ -72,7 +72,7 @@ func (d *Device) visualPage(p page.Page) (page.Page, error) {
 			continue
 		}
 		id := fmt.Sprintf("visual_%d", i)
-		p.Actions = append(p.Actions, page.Action{ID: id, Kind: "click", Node: id, Label: r.Label, Role: "visual text (clickability unknown)", Rect: &rect})
+		p.Actions = append(p.Actions, page.Action{ID: id, Kind: "click", Scope: "visual", Node: id, Label: r.Label, Role: "visual text (clickability unknown)", Rect: &rect})
 	}
 	return page.WithFingerprint(p), nil
 }
