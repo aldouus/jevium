@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/aldous/jevium/internal/agent"
@@ -47,7 +48,7 @@ func run(args []string) (runErr error) {
 	visualOCR := fs.Bool("visual-ocr", false, "enable local macOS Vision text targets (screenshots stay local)")
 	interactive := fs.Bool("tui", false, "Bubble Tea inspector")
 	scope := fs.String("scope", "all", "allowed controls: all, web, or native")
-	coveragePath := fs.String("coverage", "", "write durable JSON coverage report to this file")
+	coveragePath := fs.String("coverage", "", "write JSON coverage report (multi-device inserts .UDID before file extension)")
 	var expectedURLs goalList
 	fs.Var(&expectedURLs, "audit-url", "expected page URL, repeatable; unvisited entries remain explicit")
 	devices := fs.String("devices", "", "comma-separated UDIDs to run concurrently (requires --record-dir)")
@@ -91,6 +92,9 @@ func run(args []string) (runErr error) {
 	if fs.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments")
 	}
+	if *scope != "all" && *scope != "web" && *scope != "native" {
+		return fmt.Errorf("invalid scope %q: use all, web, or native", *scope)
+	}
 	if *discover {
 		if *devices != "" || len(goals) != 0 {
 			return fmt.Errorf("--list-devices cannot run goals or --devices")
@@ -117,6 +121,19 @@ func run(args []string) (runErr error) {
 		if err != nil {
 			return err
 		}
+		childArgs := []string{"--scope", *scope}
+		for _, expectation := range expectations {
+			childArgs = append(childArgs, "--expect", expectation)
+		}
+		for _, url := range expectedURLs {
+			childArgs = append(childArgs, "--audit-url", url)
+		}
+		if *coveragePath != "" {
+			ext := filepath.Ext(*coveragePath)
+			for i := range jobs {
+				jobs[i].Coverage = strings.TrimSuffix(*coveragePath, ext) + "." + jobs[i].UDID + ext
+			}
+		}
 		if _, err := env.Require("TYPESAFE_API_KEY", "to call TypeSafe Jev"); err != nil {
 			return err
 		}
@@ -124,7 +141,7 @@ func run(args []string) (runErr error) {
 		if err != nil {
 			return err
 		}
-		return runDevices(jobs, executable, *appiumURL, *bundle, goals, os.Stdout, runDeviceProcess)
+		return runDevices(jobs, executable, *appiumURL, *bundle, goals, os.Stdout, runDeviceProcess, childArgs...)
 	}
 	if _, err := env.Require("TYPESAFE_API_KEY", "to call TypeSafe Jev"); err != nil {
 		return err
@@ -135,9 +152,6 @@ func run(args []string) (runErr error) {
 	goal := strings.Join(goals, "\n")
 	if *mode == "appium" && strings.TrimSpace(*udid) == "" {
 		return fmt.Errorf("APPIUM_UDID is required for appium mode. Export it in the shell, set it in .env, or pass --udid")
-	}
-	if *scope != "all" && *scope != "web" && *scope != "native" {
-		return fmt.Errorf("invalid scope %q: use all, web, or native", *scope)
 	}
 	chooser := policy.Client{Scope: *scope}
 	var surface agent.Surface

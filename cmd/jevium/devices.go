@@ -15,6 +15,7 @@ import (
 
 type deviceJob struct {
 	UDID, Directory, Derived string
+	Coverage                 string
 	WDA, MJPEG               int
 }
 
@@ -40,7 +41,7 @@ func deviceJobs(ids, root, derived string, wda, mjpeg int) ([]deviceJob, error) 
 			}
 			ports[port] = true
 		}
-		jobs = append(jobs, deviceJob{id, filepath.Join(root, id), filepath.Join(derived, id), wda + i, mjpeg + i})
+		jobs = append(jobs, deviceJob{UDID: id, Directory: filepath.Join(root, id), Derived: filepath.Join(derived, id), WDA: wda + i, MJPEG: mjpeg + i})
 	}
 	return jobs, nil
 }
@@ -66,13 +67,22 @@ type deviceResult struct {
 	Directory string `json:"directory"`
 }
 
-func runDevices(jobs []deviceJob, executable, server, bundle string, goals []string, out io.Writer, launch deviceProcess) error {
+func runDevices(jobs []deviceJob, executable, server, bundle string, goals []string, out io.Writer, launch deviceProcess, childArgs ...string) error {
 	for _, job := range jobs {
 		if err := os.MkdirAll(filepath.Dir(job.Directory), 0700); err != nil {
 			return err
 		}
 		if err := os.Mkdir(job.Directory, 0700); err != nil {
 			return fmt.Errorf("reserve %s: %w", job.Directory, err)
+		}
+		if job.Coverage != "" {
+			file, err := os.OpenFile(job.Coverage, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+			if err != nil {
+				return fmt.Errorf("reserve coverage %s: %w", job.Coverage, err)
+			}
+			if err := file.Close(); err != nil {
+				return err
+			}
 		}
 	}
 	results := make([]deviceResult, len(jobs))
@@ -90,6 +100,10 @@ func runDevices(jobs []deviceJob, executable, server, bundle string, goals []str
 			}
 			statePath := filepath.Join(job.Directory, "state.json")
 			args := []string{"--mode", "appium", "--udid", job.UDID, "--session-id", "", "--appium-url", server, "--bundle-id", bundle, "--wda-local-port", fmt.Sprint(job.WDA), "--mjpeg-server-port", fmt.Sprint(job.MJPEG), "--derived-data-path", job.Derived, "--record-dir", job.Directory, "--result-file", statePath}
+			args = append(args, childArgs...)
+			if job.Coverage != "" {
+				args = append(args, "--coverage", job.Coverage)
+			}
 			for _, goal := range goals {
 				args = append(args, "--goal", goal)
 			}

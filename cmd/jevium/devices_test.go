@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"testing"
 )
@@ -28,14 +29,21 @@ func TestDevicesRunConcurrentlyAndKeepIndependentResults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	for i := range jobs {
+		jobs[i].Coverage = filepath.Join(root, jobs[i].UDID+".json")
+	}
+	expectations := []string{`{"field":"title","value":"Done"}`, `{"field":"text","value":"Complete"}`}
+	auditURLs := []string{"https://example.test/one", "https://example.test/two"}
 	arrived := make(chan struct{}, 2)
 	release := make(chan struct{})
 	var mu sync.Mutex
 	calls := map[string]int{}
 	launch := func(_ string, args []string, log io.Writer) error {
 		flags := map[string]string{}
+		repeated := map[string][]string{}
 		for i := 0; i < len(args); i += 2 {
 			flags[args[i]] = args[i+1]
+			repeated[args[i]] = append(repeated[args[i]], args[i+1])
 		}
 		id := flags["--udid"]
 		mu.Lock()
@@ -45,6 +53,15 @@ func TestDevicesRunConcurrentlyAndKeepIndependentResults(t *testing.T) {
 		<-release
 		if flags["--session-id"] != "" {
 			return fmt.Errorf("inherited session")
+		}
+		if flags["--scope"] != "web" || !reflect.DeepEqual(repeated["--expect"], expectations) || !reflect.DeepEqual(repeated["--audit-url"], auditURLs) {
+			return fmt.Errorf("lost audit arguments: %v", repeated)
+		}
+		if flags["--coverage"] != filepath.Join(root, id+".json") {
+			return fmt.Errorf("shared coverage output: %q", flags["--coverage"])
+		}
+		if err := os.WriteFile(flags["--coverage"], []byte(id), 0600); err != nil {
+			return err
 		}
 		i := 0
 		if id == "phone-b" {
@@ -64,7 +81,9 @@ func TestDevicesRunConcurrentlyAndKeepIndependentResults(t *testing.T) {
 	}
 	var output bytes.Buffer
 	finished := make(chan error, 1)
-	go func() { finished <- runDevices(jobs, "unused", "server", "bundle", []string{"goal"}, &output, launch) }()
+	go func() {
+		finished <- runDevices(jobs, "unused", "server", "bundle", []string{"goal"}, &output, launch, "--scope", "web", "--expect", expectations[0], "--expect", expectations[1], "--audit-url", auditURLs[0], "--audit-url", auditURLs[1])
+	}()
 	<-arrived
 	<-arrived
 	close(release)
@@ -90,6 +109,13 @@ func TestDevicesRunConcurrentlyAndKeepIndependentResults(t *testing.T) {
 		}
 		if string(data) != job.UDID+"\n" {
 			t.Fatalf("mixed log %q", data)
+		}
+		coverage, err := os.ReadFile(job.Coverage)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(coverage) != job.UDID {
+			t.Fatalf("mixed coverage %q", coverage)
 		}
 	}
 }
