@@ -58,7 +58,6 @@ type Page struct {
 	Guards         map[string]any `json:"guards,omitempty"`
 }
 
-// Control is visible state, independently of whether another action is available.
 type Control struct {
 	Node     any     `json:"node"`
 	Label    string  `json:"label"`
