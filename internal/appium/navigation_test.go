@@ -3,13 +3,12 @@ package appium_test
 import (
 	"github.com/aldous/jevium/internal/appium"
 	"github.com/aldous/jevium/internal/page"
-	"strings"
 	"testing"
 )
 
 func TestConfiguredNavigation(t *testing.T) {
 	active := "com.apple.mobilesafari"
-	srv, calls := mockAppium(t, strings.ReplaceAll(oneIcon, `bundleId="com.apple.springboard"`, ``), func(r *recorded) any {
+	srv, calls := mockAppium(t, screen(iconApp("Safari", "")), func(r *recorded) any {
 		if r.Body["script"] == "mobile: activeAppInfo" {
 			return map[string]string{"bundleId": active}
 		}

@@ -12,11 +12,7 @@ import (
 
 func TestConfiguredSecretNeverEntersObservation(t *testing.T) {
 	t.Setenv("TEST_PASSWORD", "private-password")
-	const source = `<AppiumAUT>
-  <XCUIElementTypeSecureTextField label="Password" value="private-password"
-    x="20" y="30" width="200" height="40"/>
-  <XCUIElementTypeStaticText label="private-password" x="0" y="80" width="100" height="20"/>
-</AppiumAUT>`
+	source := screen(fixtureNode{Kind: "SecureTextField", Label: "Password", Value: "private-password", Rect: bounds(20, 30, 200, 40)}, staticText("private-password", bounds(0, 80, 100, 20)))
 	srv, _ := mockAppium(t, source, nil)
 	d, err := appium.New(appium.Config{URL: srv.URL, UDID: "test", HTTP: srv.Client(), SecretFields: map[string]string{"Password": "TEST_PASSWORD"}})
 	if err != nil {
@@ -44,10 +40,7 @@ func TestConfiguredSecretNeverEntersObservation(t *testing.T) {
 
 func TestSecretEntryVerifiesFocusAndRedactsDriverErrors(t *testing.T) {
 	t.Setenv("TEST_PASSWORD", "private-password")
-	const source = `<AppiumAUT>
-  <XCUIElementTypeSecureTextField name="Password" label="Password"
-    x="20.5" y="30" width="200" height="40"/>
-</AppiumAUT>`
+	source := screen(fixtureNode{Kind: "SecureTextField", Name: "Password", Label: "Password", Rect: bounds(20.5, 30, 200, 40)})
 	for _, active := range []string{"field", "other", "after-clear", "insecure-after-clear"} {
 		t.Run(active, func(t *testing.T) {
 			cleared, typed := 0, 0
@@ -125,10 +118,7 @@ func TestSecretEntryVerifiesFocusAndRedactsDriverErrors(t *testing.T) {
 
 func TestDuplicateSecretLabelsAreExcluded(t *testing.T) {
 	t.Setenv("TEST_PASSWORD", "private-password")
-	const source = `<AppiumAUT>
-  <XCUIElementTypeSecureTextField label="Password" x="20" y="30" width="200" height="40"/>
-  <XCUIElementTypeSecureTextField label="Password" x="20" y="90" width="200" height="40"/>
-</AppiumAUT>`
+	source := screen(fixtureNode{Kind: "SecureTextField", Label: "Password", Rect: bounds(20, 30, 200, 40)}, fixtureNode{Kind: "SecureTextField", Label: "Password", Rect: bounds(20, 90, 200, 40)})
 	srv, _ := mockAppium(t, source, nil)
 	d, err := appium.New(appium.Config{URL: srv.URL, UDID: "test", HTTP: srv.Client(), SecretFields: map[string]string{"Password": "TEST_PASSWORD"}})
 	if err != nil {
@@ -146,7 +136,7 @@ func TestDuplicateSecretLabelsAreExcluded(t *testing.T) {
 
 func TestSecretIsRedactedBeforeTextTruncation(t *testing.T) {
 	t.Setenv("TEST_PASSWORD", "private-password-value")
-	source := `<AppiumAUT><XCUIElementTypeStaticText x="0" y="0" width="200" height="40" label="` + strings.Repeat("x", 5990) + `private-password-value"/></AppiumAUT>`
+	source := screen(staticText(strings.Repeat("x", 5990)+"private-password-value", bounds(0, 0, 200, 40)))
 	srv, _ := mockAppium(t, source, nil)
 	d, err := appium.New(appium.Config{URL: srv.URL, UDID: "test", HTTP: srv.Client(), SecretFields: map[string]string{"Password": "TEST_PASSWORD"}})
 	if err != nil {
@@ -167,9 +157,7 @@ func TestSecretIsRedactedBeforeTextTruncation(t *testing.T) {
 func TestOverlappingSecretsAreFullyRedacted(t *testing.T) {
 	t.Setenv("SHORT_PASSWORD", "private")
 	t.Setenv("LONG_PASSWORD", "private-password-value")
-	const source = `<AppiumAUT>
-  <XCUIElementTypeStaticText label="private-password-value and private" x="0" y="0" width="200" height="40"/>
-</AppiumAUT>`
+	source := screen(staticText("private-password-value and private", bounds(0, 0, 200, 40)))
 	srv, _ := mockAppium(t, source, nil)
 	d, err := appium.New(appium.Config{URL: srv.URL, UDID: "test", HTTP: srv.Client(), SecretFields: map[string]string{"First": "SHORT_PASSWORD", "Second": "LONG_PASSWORD"}})
 	if err != nil {
@@ -185,10 +173,7 @@ func TestOverlappingSecretsAreFullyRedacted(t *testing.T) {
 }
 
 func TestUnconfiguredSecureFieldIsNotOffered(t *testing.T) {
-	const source = `<AppiumAUT>
-  <XCUIElementTypeSecureTextField label="Password" value="private-password"
-    x="20" y="30" width="200" height="40"/>
-</AppiumAUT>`
+	source := screen(fixtureNode{Kind: "SecureTextField", Label: "Password", Value: "private-password", Rect: bounds(20, 30, 200, 40)})
 	srv, _ := mockAppium(t, source, nil)
 	d, err := appium.New(appium.Config{URL: srv.URL, UDID: "test", HTTP: srv.Client()})
 	if err != nil {

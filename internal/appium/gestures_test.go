@@ -8,13 +8,10 @@ import (
 )
 
 func TestGroundedGesturesExecuteOnce(t *testing.T) {
-	const source = `<AppiumAUT>
-  <XCUIElementTypeWindow width="400" height="800">
-    <XCUIElementTypeButton name="Item" x="20" y="40" width="100" height="80"/>
-    <XCUIElementTypeButton name="Destination" x="200" y="300" width="100" height="80"/>
-    <XCUIElementTypeSlider name="Volume" x="20" y="500" width="200" height="30"/>
-  </XCUIElementTypeWindow>
-</AppiumAUT>`
+	source := screen(window(400, 800,
+		button("Item", bounds(20, 40, 100, 80)), button("Destination", bounds(200, 300, 100, 80)),
+		fixtureNode{Kind: "Slider", Name: "Volume", Rect: bounds(20, 500, 200, 30)},
+	))
 	for _, op := range []string{"LONG_PRESS", "DOUBLE_TAP", "SWIPE_LEFT", "SWIPE_RIGHT", "DRAG", "PINCH_IN", "PINCH_OUT", "SET_SLIDER"} {
 		t.Run(op, func(t *testing.T) {
 			mutations := 0
@@ -75,11 +72,7 @@ func TestGroundedGesturesExecuteOnce(t *testing.T) {
 }
 
 func TestClippedTargetsDoNotOfferGestures(t *testing.T) {
-	const source = `<AppiumAUT>
-  <XCUIElementTypeWindow width="100" height="200">
-    <XCUIElementTypeButton name="Clipped" x="-20" y="20" width="100" height="50"/>
-  </XCUIElementTypeWindow>
-</AppiumAUT>`
+	source := screen(window(100, 200, button("Clipped", bounds(-20, 20, 100, 50))))
 	p, err := appium.SnapshotFromSource(source, "test", nil)
 	if err != nil {
 		t.Fatal(err)

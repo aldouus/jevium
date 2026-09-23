@@ -9,52 +9,27 @@ import (
 	"github.com/aldous/jevium/internal/policy"
 )
 
-const springboard = `<?xml version="1.0" encoding="UTF-8"?>
-<AppiumAUT>
-  <XCUIElementTypeApplication name="SpringBoard" bundleId="com.apple.springboard" visible="true">
-    <XCUIElementTypeWindow visible="true" enabled="true">
-      <XCUIElementTypeIcon name="Safari" label="Safari" type="XCUIElementTypeIcon"
-        enabled="true" visible="true" accessible="true" x="24" y="80" width="60" height="60"/>
-      <XCUIElementTypeIcon name="Settings" label="Settings" type="XCUIElementTypeIcon"
-        enabled="true" visible="true" accessible="true" x="100" y="80" width="60" height="60"/>
-      <XCUIElementTypeIcon name="Hidden" label="Hidden" type="XCUIElementTypeIcon"
-        enabled="true" visible="false" accessible="true" x="176" y="80" width="60" height="60"/>
-    </XCUIElementTypeWindow>
-  </XCUIElementTypeApplication>
-</AppiumAUT>`
+var springboard = screen(fixtureNode{Kind: "Application", Name: "SpringBoard", BundleID: "com.apple.springboard", Children: []fixtureNode{
+	window(0, 0,
+		fixtureNode{Kind: "Icon", Name: "Safari", Label: "Safari", Accessible: true, Rect: bounds(24, 80, 60, 60)},
+		fixtureNode{Kind: "Icon", Name: "Settings", Label: "Settings", Accessible: true, Rect: bounds(100, 80, 60, 60)},
+		fixtureNode{Kind: "Icon", Name: "Hidden", Label: "Hidden", Accessible: true, Hidden: true, Rect: bounds(176, 80, 60, 60)},
+	),
+}})
 
-const safariSearch = `<?xml version="1.0" encoding="UTF-8"?>
-<AppiumAUT>
-  <XCUIElementTypeApplication name="Safari" label="Safari" bundleId="com.apple.mobilesafari" visible="true">
-    <XCUIElementTypeWindow visible="true" enabled="true" width="375" height="812">
-      <XCUIElementTypeOther visible="true">
-        <XCUIElementTypeStaticText value="Example Domain" label="Example Domain"
-          visible="true" enabled="true" x="20" y="120" width="335" height="24"/>
-        <XCUIElementTypeButton name="Tabs" label="Tabs" type="XCUIElementTypeButton"
-          enabled="true" visible="true" accessible="true" x="320" y="54" width="40" height="32"/>
-        <XCUIElementTypeTextField name="TabBarItemTitle" label="Address" value="example.com"
-          type="XCUIElementTypeTextField" enabled="true" visible="true" accessible="true"
-          x="48" y="54" width="240" height="32"/>
-        <XCUIElementTypeSecureTextField name="Password" label="Password" value="••••"
-          type="XCUIElementTypeSecureTextField" enabled="true" visible="true" accessible="true"
-          x="48" y="400" width="240" height="32"/>
-        <XCUIElementTypePickerWheel name="Month" label="Month" value="September"
-          type="XCUIElementTypePickerWheel" enabled="true" visible="true" accessible="true"
-          x="20" y="500" width="160" height="120"
-          values="January,February,March,April,May,June,July,August,September,October,November,December"/>
-        <XCUIElementTypeSwitch name="Private" label="Private" value="0"
-          type="XCUIElementTypeSwitch" enabled="true" visible="true" accessible="true"
-          x="20" y="640" width="80" height="32"/>
-        <XCUIElementTypeAlert name="Allow Paste" label="Allow Paste" visible="true" enabled="true">
-          <XCUIElementTypeButton name="Allow Paste" label="Allow Paste"
-            enabled="true" visible="true" accessible="true" x="40" y="360" width="140" height="44"/>
-          <XCUIElementTypeButton name="Don't Allow" label="Don't Allow"
-            enabled="true" visible="true" accessible="true" x="196" y="360" width="140" height="44"/>
-        </XCUIElementTypeAlert>
-      </XCUIElementTypeOther>
-    </XCUIElementTypeWindow>
-  </XCUIElementTypeApplication>
-</AppiumAUT>`
+var safariSearch = screen(fixtureNode{Kind: "Application", Name: "Safari", BundleID: "com.apple.mobilesafari", Children: []fixtureNode{
+	window(375, 812,
+		staticText("Example Domain", bounds(20, 120, 335, 24)),
+		button("Tabs", bounds(320, 54, 40, 32)),
+		fixtureNode{Kind: "TextField", Name: "TabBarItemTitle", Label: "Address", Value: "example.com", Rect: bounds(48, 54, 240, 32)},
+		fixtureNode{Kind: "SecureTextField", Name: "Password", Label: "Password", Value: "••••", Rect: bounds(48, 400, 240, 32)},
+		fixtureNode{Kind: "PickerWheel", Name: "Month", Label: "Month", Value: "September", Rect: bounds(20, 500, 160, 120), Values: "January,February,March,April,May,June,July,August,September,October,November,December"},
+		fixtureNode{Kind: "Switch", Name: "Private", Label: "Private", Value: "0", Rect: bounds(20, 640, 80, 32)},
+		fixtureNode{Kind: "Alert", Name: "Allow Paste", Label: "Allow Paste", Children: []fixtureNode{
+			button("Allow Paste", bounds(40, 360, 140, 44)), button("Don't Allow", bounds(196, 360, 140, 44)),
+		}},
+	),
+}})
 
 func kinds(p page.Page, kind string) []page.Action {
 	var out []page.Action
@@ -194,13 +169,11 @@ func TestVisibleStaticTextIsPageText(t *testing.T) {
 
 func TestActionCapKeepsControls(t *testing.T) {
 	t.Parallel()
-	var b strings.Builder
-	b.WriteString(`<?xml version="1.0"?><AppiumAUT><XCUIElementTypeApplication name="SpringBoard" bundleId="com.apple.springboard" visible="true"><XCUIElementTypeWindow visible="true" enabled="true">`)
+	var icons []fixtureNode
 	for i := range 400 {
-		b.WriteString(`<XCUIElementTypeIcon name="App` + itoa(i) + `" label="App` + itoa(i) + `" enabled="true" visible="true" accessible="true" x="0" y="0" width="32" height="32"/>`)
+		icons = append(icons, fixtureNode{Kind: "Icon", Name: "App" + itoa(i), Label: "App" + itoa(i), Accessible: true, Rect: bounds(0, 0, 32, 32)})
 	}
-	b.WriteString(`</XCUIElementTypeWindow></XCUIElementTypeApplication></AppiumAUT>`)
-	p, err := appium.SnapshotFromSource(b.String(), "com.apple.springboard", nil)
+	p, err := appium.SnapshotFromSource(screen(window(0, 0, icons...)), "com.apple.springboard", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +227,8 @@ func itoa(n int) string {
 }
 
 func TestWebViewOffersScrollOperations(t *testing.T) {
-	p, err := appium.SnapshotFromSource(`<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeScrollView visible="true" x="0" y="50" width="375" height="650"><XCUIElementTypeWebView visible="true" x="0" y="50" width="375" height="650"/></XCUIElementTypeScrollView></XCUIElementTypeWindow></AppiumAUT>`, "com.apple.mobilesafari", nil)
+	source := screen(window(375, 812, scroll("", bounds(0, 50, 375, 650), fixtureNode{Kind: "WebView", Rect: bounds(0, 50, 375, 650)})))
+	p, err := appium.SnapshotFromSource(source, "com.apple.mobilesafari", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +245,8 @@ func TestWebViewOffersScrollOperations(t *testing.T) {
 }
 
 func TestAccessibleCustomControlIsOffered(t *testing.T) {
-	p, err := appium.SnapshotFromSource(`<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeOther label="Menu" visible="true" accessible="true" hittable="true" x="271" y="114" width="80" height="44"/><XCUIElementTypeOther label="Layout" visible="true" accessible="false" hittable="true" x="0" y="50" width="375" height="650"/></XCUIElementTypeWindow></AppiumAUT>`, "com.apple.mobilesafari", nil)
+	source := screen(window(375, 812, fixtureNode{Kind: "Other", Label: "Menu", Accessible: true, Rect: bounds(271, 114, 80, 44)}, fixtureNode{Kind: "Other", Label: "Layout", Rect: bounds(0, 50, 375, 650)}))
+	p, err := appium.SnapshotFromSource(source, "com.apple.mobilesafari", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,26 +257,32 @@ func TestAccessibleCustomControlIsOffered(t *testing.T) {
 }
 
 func TestScrollTargetsHittableForegroundContainer(t *testing.T) {
-	source := `<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeScrollView visible="true" hittable="false" x="0" y="0" width="375" height="812"/><XCUIElementTypeScrollView visible="true" hittable="true" x="20" y="400" width="335" height="350"/></XCUIElementTypeWindow></AppiumAUT>`
+	covered := scroll("", bounds(0, 0, 375, 812))
+	covered.NotHittable = true
+	source := screen(window(375, 812, covered, scroll("", bounds(20, 400, 335, 350))))
 	p, err := appium.SnapshotFromSource(source, "app", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, id := range []string{"scroll_down", "scroll_up"} {
 		a, ok := page.FindAction(p.Actions, id)
-		if !ok || a.Rect == nil || *a.Rect != (page.Rect{X: 20, Y: 400, W: 335, H: 350}) {
-			t.Fatalf("%s: action=%+v found=%v", id, a, ok)
+		if !ok {
+			t.Fatalf("missing %s", id)
+		}
+		if a.Rect == nil {
+			t.Fatalf("%s has no rectangle", id)
+		}
+		want := bounds(20, 400, 335, 350)
+		if *a.Rect != want {
+			t.Fatalf("%s rectangle=%+v want=%+v", id, *a.Rect, want)
 		}
 	}
 }
 
 func TestSnapshotRejectsCoveredAndClippedControls(t *testing.T) {
-	source := `<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeScrollView visible="true" x="0" y="50" width="375" height="550">
-<XCUIElementTypeButton label="Available" visible="true" hittable="true" x="10" y="100" width="100" height="40"/>
-<XCUIElementTypeButton label="Covered" visible="true" hittable="false" x="10" y="200" width="100" height="40"/>
-<XCUIElementTypeButton label="Below container" visible="true" hittable="true" x="10" y="650" width="100" height="40"/>
-<XCUIElementTypeStaticText label="Offscreen answer" visible="true" x="10" y="850" width="100" height="40"/>
-</XCUIElementTypeScrollView></XCUIElementTypeWindow></AppiumAUT>`
+	covered := button("Covered", bounds(10, 200, 100, 40))
+	covered.NotHittable = true
+	source := screen(window(375, 812, scroll("", bounds(0, 50, 375, 550), button("Available", bounds(10, 100, 100, 40)), covered, button("Below container", bounds(10, 650, 100, 40)), staticText("Offscreen answer", bounds(10, 850, 100, 40)))))
 	p, err := appium.SnapshotFromSource(source, "com.apple.mobilesafari", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -316,7 +297,7 @@ func TestSnapshotRejectsCoveredAndClippedControls(t *testing.T) {
 }
 
 func TestSnapshotIgnoresDecorativeSourceChangesButTracksTargetGeometry(t *testing.T) {
-	source := `<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeOther x="0" y="0" width="375" height="812" animationTick="1"><XCUIElementTypeButton label="Menu" visible="true" x="10" y="100" width="100" height="40"/></XCUIElementTypeOther></XCUIElementTypeWindow></AppiumAUT>`
+	decoration := fixtureNode{Kind: "Other", Rect: bounds(0, 0, 375, 812), AnimationTick: "1", Children: []fixtureNode{button("Menu", bounds(10, 100, 100, 40))}}
 	snapshot := func(s string) page.Page {
 		t.Helper()
 		p, err := appium.SnapshotFromSource(s, "com.apple.mobilesafari", nil)
@@ -325,28 +306,34 @@ func TestSnapshotIgnoresDecorativeSourceChangesButTracksTargetGeometry(t *testin
 		}
 		return p
 	}
-	original := snapshot(source)
-	decorative := snapshot(strings.Replace(source, `animationTick="1"`, `animationTick="2"`, 1))
+	original := snapshot(screen(window(375, 812, decoration)))
+	decoration.AnimationTick = "2"
+	decorative := snapshot(screen(window(375, 812, decoration)))
 	if original.Fingerprint != decorative.Fingerprint {
 		t.Fatal("decorative XML invalidates unchanged targets")
 	}
-	inserted := snapshot(strings.Replace(source, `<XCUIElementTypeButton`, `<XCUIElementTypeOther accessible="false" x="0" y="0" width="30" height="30"/><XCUIElementTypeButton`, 1))
+	decoration.Children = append([]fixtureNode{{Kind: "Other", Rect: bounds(0, 0, 30, 30)}}, decoration.Children...)
+	inserted := snapshot(screen(window(375, 812, decoration)))
 	if original.Fingerprint != inserted.Fingerprint {
 		t.Fatal("decorative sibling invalidates unchanged targets")
 	}
-	moved := snapshot(strings.Replace(source, `y="100"`, `y="120"`, 1))
+	decoration.Children[1].Rect.Y = 120
+	moved := snapshot(screen(window(375, 812, decoration)))
 	if original.Fingerprint == moved.Fingerprint {
 		t.Fatal("moved tap target did not invalidate snapshot")
 	}
 }
 
 func TestNativeTargetIdentityChangesFingerprint(t *testing.T) {
-	source := `<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeButton name="approve-alice" label="Approve" visible="true" x="10" y="100" width="100" height="40"/></XCUIElementTypeWindow></AppiumAUT>`
+	target := button("Approve", bounds(10, 100, 100, 40))
+	target.Name = "approve-alice"
+	source := screen(window(375, 812, target))
 	a, err := appium.SnapshotFromSource(source, "app", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := appium.SnapshotFromSource(strings.Replace(source, "approve-alice", "approve-bob", 1), "app", nil)
+	target.Name = "approve-bob"
+	b, err := appium.SnapshotFromSource(screen(window(375, 812, target)), "app", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -356,7 +343,9 @@ func TestNativeTargetIdentityChangesFingerprint(t *testing.T) {
 }
 
 func TestVisibleWebContentSurvivesOffscreenStructuralAncestor(t *testing.T) {
-	source := `<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeWebView visible="true" x="0" y="0" width="375" height="812"><XCUIElementTypeOther visible="false" x="0" y="-1000" width="375" height="812"><XCUIElementTypeStaticText label="Visible paragraph" visible="true" x="16" y="100" width="300" height="40"/><XCUIElementTypeButton label="Visible button" visible="true" hittable="true" x="16" y="160" width="100" height="40"/></XCUIElementTypeOther></XCUIElementTypeWebView></XCUIElementTypeWindow></AppiumAUT>`
+	source := screen(window(375, 812, fixtureNode{Kind: "WebView", Rect: bounds(0, 0, 375, 812), Children: []fixtureNode{
+		{Kind: "Other", Hidden: true, Rect: bounds(0, -1000, 375, 812), Children: []fixtureNode{staticText("Visible paragraph", bounds(16, 100, 300, 40)), button("Visible button", bounds(16, 160, 100, 40))}},
+	}}))
 	p, err := appium.SnapshotFromSource(source, "app", nil)
 	if err != nil {
 		t.Fatal(err)

@@ -11,10 +11,7 @@ import (
 )
 
 func TestPickerUsesVerifiedNativeReference(t *testing.T) {
-	const source = `<AppiumAUT>
-  <XCUIElementTypePickerWheel name="Month" label="Month" value="April"
-    values="April,May" x="20.5" y="100" width="120.25" height="200"/>
-</AppiumAUT>`
+	source := screen(fixtureNode{Kind: "PickerWheel", Name: "Month", Label: "Month", Value: "April", Values: "April,May", Rect: bounds(20.5, 100, 120.25, 200)})
 	for _, op := range []string{"SELECT", "PICKER_NEXT", "PICKER_PREVIOUS"} {
 		t.Run(op, func(t *testing.T) {
 			mutations := 0

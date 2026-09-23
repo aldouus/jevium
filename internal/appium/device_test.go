@@ -14,15 +14,13 @@ import (
 	"github.com/aldous/jevium/internal/page"
 )
 
-const oneIcon = `<?xml version="1.0" encoding="UTF-8"?>
-<AppiumAUT>
-  <XCUIElementTypeApplication name="SpringBoard" bundleId="com.apple.springboard" visible="true">
-    <XCUIElementTypeWindow visible="true" enabled="true">
-      <XCUIElementTypeIcon name="Safari" label="Safari" enabled="true" visible="true"
-        accessible="true" x="24" y="80" width="60" height="60"/>
-    </XCUIElementTypeWindow>
-  </XCUIElementTypeApplication>
-</AppiumAUT>`
+var oneIcon = screen(iconApp("Safari", "com.apple.springboard"))
+
+func iconApp(name, bundle string) fixtureNode {
+	return fixtureNode{Kind: "Application", Name: "SpringBoard", BundleID: bundle, Children: []fixtureNode{
+		window(0, 0, fixtureNode{Kind: "Icon", Name: name, Label: name, Accessible: true, Rect: bounds(24, 80, 60, 60)}),
+	}}
+}
 
 type recorded struct {
 	Method string
@@ -30,7 +28,7 @@ type recorded struct {
 	Body   map[string]any
 }
 
-func mockAppium(t *testing.T, source string, onPost func(*recorded) any) (*httptest.Server, *[]recorded) {
+func mockAppium(t *testing.T, source string, onPost func(*recorded) any, elements ...mockElement) (*httptest.Server, *[]recorded) {
 	t.Helper()
 	var calls []recorded
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -42,16 +40,12 @@ func mockAppium(t *testing.T, source string, onPost func(*recorded) any) (*httpt
 			}
 		}
 		calls = append(calls, item)
+		if value, ok := elementResponse(item, elements); ok {
+			_ = json.NewEncoder(w).Encode(map[string]any{"value": value})
+			return
+		}
 		var value any
 		switch {
-		case strings.HasSuffix(r.URL.Path, "/elements"):
-			value = []map[string]string{{"element-6066-11e4-a52e-4f735466cecf": "field"}}
-		case strings.HasSuffix(r.URL.Path, "/element/active"):
-			value = map[string]string{"element-6066-11e4-a52e-4f735466cecf": "field"}
-		case strings.HasSuffix(r.URL.Path, "/attribute/name"):
-			value = "Address"
-		case strings.Contains(r.URL.Path, "/element/") && strings.HasSuffix(r.URL.Path, "/rect"):
-			value = map[string]int{"x": 48, "y": 54, "width": 240, "height": 32}
 		case r.Method == http.MethodPost && r.URL.Path == "/session":
 			value = map[string]any{"sessionId": "sess-1"}
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/source"):
@@ -127,7 +121,7 @@ func TestObserveIsOneSourceRead(t *testing.T) {
 }
 
 func TestObservedScrollExecutesOneSwipe(t *testing.T) {
-	source := `<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeScrollView visible="true" x="240" y="100" width="100" height="400"/></XCUIElementTypeWindow></AppiumAUT>`
+	source := screen(window(375, 812, scroll("", bounds(240, 100, 100, 400))))
 	srv, calls := mockAppium(t, source, nil)
 	d, err := appium.New(appium.Config{URL: srv.URL, UDID: "x", HTTP: srv.Client()})
 	if err != nil {
@@ -196,7 +190,7 @@ func TestActRejectsStalePage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	current = strings.ReplaceAll(oneIcon, "Safari", "Photos")
+	current = screen(iconApp("Photos", "com.apple.springboard"))
 	armed = true
 	safari := p.Actions[0]
 	err = d.Act(safari, p, nil)
@@ -235,11 +229,8 @@ func TestClickTapsCurrentGeometry(t *testing.T) {
 }
 
 func TestFillTapsThenTypesWithW3CActions(t *testing.T) {
-	const fieldXML = `<?xml version="1.0"?><AppiumAUT>
-      <XCUIElementTypeApplication name="Safari" bundleId="com.apple.mobilesafari" visible="true">
-        <XCUIElementTypeTextField name="Address" label="Address" value="" enabled="true"
-          visible="true" accessible="true" x="48" y="54" width="240" height="32"/>
-      </XCUIElementTypeApplication></AppiumAUT>`
+	field := textField("Address", "", bounds(48, 54, 240, 32))
+	fieldXML := screen(fixtureNode{Kind: "Application", Name: "Safari", BundleID: "com.apple.mobilesafari", Children: []fixtureNode{field}})
 	var taps []map[string]any
 	var typed []any
 	srv, calls := mockAppium(t, fieldXML, func(r *recorded) any {
@@ -255,7 +246,7 @@ func TestFillTapsThenTypesWithW3CActions(t *testing.T) {
 			t.Fatalf("legacy type path %s", r.Path)
 		}
 		return nil
-	})
+	}, mockElement{ID: "field", Node: field})
 	d, err := appium.New(appium.Config{URL: srv.URL, UDID: "x", BundleID: "com.apple.mobilesafari", HTTP: srv.Client()})
 	if err != nil {
 		t.Fatal(err)
@@ -264,25 +255,25 @@ func TestFillTapsThenTypesWithW3CActions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var field page.Action
+	var fieldAction page.Action
 	for _, a := range p.Actions {
 		if a.Kind == "fill" && a.Label == "Address" {
-			field = a
+			fieldAction = a
 			break
 		}
 	}
-	if field.Kind == "" {
+	if fieldAction.Kind == "" {
 		t.Fatal("missing fill action")
 	}
 	text := "https://example.com"
-	if err := d.Act(field, p, &text); err != nil {
+	if err := d.Act(fieldAction, p, &text); err != nil {
 		t.Fatal(err)
 	}
 	if len(taps) != 1 {
 		t.Fatalf("taps=%v calls=%v", taps, paths(*calls))
 	}
 	if taps[0]["x"] != 168.0 || taps[0]["y"] != 70.0 {
-		t.Fatalf("tap=%v rect=%+v", taps[0], field.Rect)
+		t.Fatalf("tap=%v rect=%+v", taps[0], fieldAction.Rect)
 	}
 	if len(typed) != 1 {
 		t.Fatalf("actions=%v", typed)
@@ -406,16 +397,8 @@ func TestUnexpectedJSONFailsClosed(t *testing.T) {
 }
 
 func TestFillTypesAfterKeyboardShiftsSameField(t *testing.T) {
-	const fieldXML = `<?xml version="1.0"?><AppiumAUT>
-      <XCUIElementTypeApplication name="Safari" bundleId="com.apple.mobilesafari" visible="true">
-        <XCUIElementTypeTextField name="Address" label="Address" value="" enabled="true"
-          visible="true" accessible="true" x="48" y="54" width="240" height="32"/>
-      </XCUIElementTypeApplication></AppiumAUT>`
-	const movedXML = `<?xml version="1.0"?><AppiumAUT>
-      <XCUIElementTypeApplication name="Safari" bundleId="com.apple.mobilesafari" visible="true">
-        <XCUIElementTypeTextField name="Address" label="Address" value="" enabled="true"
-          visible="true" accessible="true" x="48" y="200" width="240" height="32"/>
-      </XCUIElementTypeApplication></AppiumAUT>`
+	fieldXML := screen(textField("Address", "", bounds(48, 54, 240, 32)))
+	movedXML := screen(textField("Address", "", bounds(48, 200, 240, 32)))
 	source := fieldXML
 	var typed bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -473,12 +456,7 @@ func TestFillTypesAfterKeyboardShiftsSameField(t *testing.T) {
 }
 
 func TestSelectRefusesUnresolvedElement(t *testing.T) {
-	const pickerXML = `<?xml version="1.0"?><AppiumAUT>
-      <XCUIElementTypeApplication name="Safari" bundleId="com.apple.mobilesafari" visible="true">
-        <XCUIElementTypePickerWheel name="Month" label="Month" value="September" enabled="true"
-          visible="true" accessible="true" x="20" y="500" width="160" height="120"
-          values="January,February,March"/>
-      </XCUIElementTypeApplication></AppiumAUT>`
+	pickerXML := screen(fixtureNode{Kind: "PickerWheel", Name: "Month", Label: "Month", Value: "September", Values: "January,February,March", Rect: bounds(20, 500, 160, 120)})
 	srv, calls := mockAppium(t, pickerXML, func(r *recorded) any {
 		if strings.Contains(r.Path, "/element/") {
 			t.Fatalf("element-id path %s", r.Path)

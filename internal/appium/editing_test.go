@@ -14,11 +14,7 @@ import (
 )
 
 func TestReplaceClearsObservedActiveFieldBeforeTyping(t *testing.T) {
-	const source = `<AppiumAUT>
-  <XCUIElementTypeTextField name="Search" value="old"
-    x="20" y="30" width="200" height="40"/>
-  <XCUIElementTypeKeyboard x="0" y="400" width="375" height="300"/>
-</AppiumAUT>`
+	source := screen(textField("Search", "old", bounds(20, 30, 200, 40)), fixtureNode{Kind: "Keyboard", Rect: bounds(0, 400, 375, 300)})
 	var mutations []string
 	var nativeKeys []any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -103,10 +99,7 @@ func TestReplaceClearsObservedActiveFieldBeforeTyping(t *testing.T) {
 }
 
 func TestFieldFocusKeepsUUIDAcrossReflowAndDuplicateLabels(t *testing.T) {
-	const source = `<AppiumAUT>
-  <XCUIElementTypeTextField name="Name" value="first" x="10.5" y="20" width="200.25" height="30"/>
-  <XCUIElementTypeTextField name="Name" value="second" x="10.5" y="80" width="200.25" height="30"/>
-</AppiumAUT>`
+	source := screen(textField("Name", "first", bounds(10.5, 20, 200.25, 30)), textField("Name", "second", bounds(10.5, 80, 200.25, 30)))
 	for _, active := range []string{"second", "first", "after-clear"} {
 		t.Run(active, func(t *testing.T) {
 			focused := false

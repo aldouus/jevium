@@ -7,13 +7,7 @@ import (
 )
 
 func TestNestedScrollTargetsExposeSeparateGestureRegions(t *testing.T) {
-	const source = `<AppiumAUT>
-  <XCUIElementTypeWindow width="400" height="800">
-    <XCUIElementTypeScrollView name="Page" x="0" y="0" width="400" height="800">
-      <XCUIElementTypeScrollView name="Results" x="100" y="100" width="300" height="600"/>
-    </XCUIElementTypeScrollView>
-  </XCUIElementTypeWindow>
-</AppiumAUT>`
+	source := screen(window(400, 800, scroll("Page", bounds(0, 0, 400, 800), scroll("Results", bounds(100, 100, 300, 600)))))
 	p, err := appium.SnapshotFromSource(source, "test", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -38,14 +32,9 @@ func TestNestedScrollTargetsExposeSeparateGestureRegions(t *testing.T) {
 }
 
 func TestParentKeepsUsableStripAfterSeveralChildren(t *testing.T) {
-	const source = `<AppiumAUT>
-  <XCUIElementTypeWindow width="400" height="800">
-    <XCUIElementTypeScrollView name="Page" x="0" y="0" width="400" height="800">
-      <XCUIElementTypeScrollView name="Top" x="100" y="0" width="200" height="100"/>
-      <XCUIElementTypeScrollView name="Bottom" x="0" y="100" width="400" height="700"/>
-    </XCUIElementTypeScrollView>
-  </XCUIElementTypeWindow>
-</AppiumAUT>`
+	source := screen(window(400, 800, scroll("Page", bounds(0, 0, 400, 800),
+		scroll("Top", bounds(100, 0, 200, 100)), scroll("Bottom", bounds(0, 100, 400, 700)),
+	)))
 	p, err := appium.SnapshotFromSource(source, "test", nil)
 	if err != nil {
 		t.Fatal(err)
