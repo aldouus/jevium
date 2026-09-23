@@ -6,7 +6,6 @@ func containsRect(parent, child page.Rect) bool {
 	return child.X >= parent.X && child.Y >= parent.Y && child.X+child.W <= parent.X+parent.W && child.Y+child.H <= parent.Y+parent.H
 }
 
-// Choose an exposed strip so scrolling a parent does not start in its child.
 func outsideRect(parent, child page.Rect) []page.Rect {
 	overlap := intersect(child, &parent)
 	if overlap.W <= 0 || overlap.H <= 0 {
