@@ -6,8 +6,6 @@ import (
 	"strings"
 )
 
-// Chrome's first page-key component is performance.timeOrigin. Native snapshots
-// lack a document identity, so reused accessibility IDs cannot prove continuity.
 func sameDocument(before, after page.Page) bool {
 	if before.URL != after.URL || before.BundleID != after.BundleID || strings.HasPrefix(before.URL, "app://") {
 		return false

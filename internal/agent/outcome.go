@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-// ActionOutcome separates a changed observation from proof of the intended effect.
 func ActionOutcome(action page.Action, text *string, before, after page.Page) string {
 	if !sameDocument(before, after) {
 		if before.Fingerprint != after.Fingerprint || !reflect.DeepEqual(before.PageKey, after.PageKey) {
@@ -56,8 +55,6 @@ func ActionOutcome(action page.Action, text *string, before, after page.Page) st
 	return "unchanged"
 }
 
-// Three repetitions of the same observed transitions are not forward progress.
-// Waits are exempt: background work may legitimately remain unchanged.
 func RepeatedCycle(h []HistoryEntry) bool {
 	for period := 1; period <= 4; period++ {
 		if len(h) < 3*period {
