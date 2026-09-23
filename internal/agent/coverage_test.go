@@ -63,3 +63,19 @@ func TestCoverageDoesNotVerifyReusedNodeAfterNavigation(t *testing.T) {
 		}
 	}
 }
+
+func TestCoverageSharesVerifiedControlStateWithHistory(t *testing.T) {
+	action := page.Action{Node: 1, Kind: "select", Label: "Country → Canada", Value: "ca", CurrentValue: "fr"}
+	before := page.WithFingerprint(page.Page{URL: "https://example.test", PageKey: []any{1}, Actions: []page.Action{action}})
+	value := "ca"
+	after := page.WithFingerprint(page.Page{URL: before.URL, PageKey: before.PageKey, Controls: []page.Control{{Node: 1, Label: "Country", Value: &value}}})
+	if outcome := ActionOutcome(action, nil, before, after); outcome != "verified" {
+		t.Fatalf("outcome=%s", outcome)
+	}
+	c := Coverage{}
+	c.Attempt(before, action)
+	c.Result(before, action, after, nil)
+	if entry := c.Pages[before.URL].Controls[controlKey(action)]; entry.Verified != 1 {
+		t.Fatalf("coverage=%+v", entry)
+	}
+}

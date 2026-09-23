@@ -60,16 +60,7 @@ func (c *Coverage) Result(before page.Page, a page.Action, after page.Page, text
 	if before.Fingerprint != after.Fingerprint {
 		entry.Changed++
 	}
-	matches := 0
-	verified := false
-	for _, next := range after.Actions {
-		if controlKey(next) != controlKey(a) {
-			continue
-		}
-		matches++
-		verified = a.Kind == "fill" && text != nil && next.Value == *text || a.Kind == "click" && a.Checked != "" && next.Checked != "" && a.Checked != next.Checked
-	}
-	if matches == 1 && verified && sameDocument(before, after) {
+	if ActionOutcome(a, text, before, after) == "verified" {
 		entry.Verified++
 	}
 	c.Observe(after)

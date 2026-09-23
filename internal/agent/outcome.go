@@ -14,6 +14,42 @@ func ActionOutcome(action page.Action, text *string, before, after page.Page) st
 		}
 		return "unverified"
 	}
+	if len(after.Controls) > 0 {
+		label := action.Label
+		if action.Kind == "select" {
+			label = strings.Split(label, " → ")[0]
+		}
+		var matches []page.Control
+		for _, control := range after.Controls {
+			if fmt.Sprint(control.Node) == fmt.Sprint(action.Node) && control.Label == label {
+				matches = append(matches, control)
+			}
+		}
+		if len(matches) == 1 {
+			next := matches[0]
+			switch action.Kind {
+			case "fill":
+				if text != nil && next.Value != nil && *next.Value == *text {
+					return "verified"
+				}
+			case "select":
+				if next.Value != nil && *next.Value == action.Value {
+					return "verified"
+				}
+			case "click":
+				if action.Checked != "" && next.Checked != "" && next.Checked != action.Checked {
+					return "verified"
+				}
+				if action.Expanded != "" && next.Expanded != "" && next.Expanded != action.Expanded {
+					return "verified"
+				}
+			}
+		}
+		if before.Fingerprint != after.Fingerprint {
+			return "observed-change"
+		}
+		return "unchanged"
+	}
 	if action.Kind == "select" {
 		found, matches := false, true
 		for _, candidate := range after.Actions {
