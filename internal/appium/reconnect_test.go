@@ -61,3 +61,30 @@ func TestReconnectIsBoundedAndDoesNotRetryProtocolErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestReconnectKeepsResponseLimit(t *testing.T) {
+	calls := 0
+	d := &Device{cfg: Config{URL: "http://appium.invalid"}, http: &http.Client{Transport: reconnectTransport(func(*http.Request) (*http.Response, error) {
+		calls++
+		if calls == 1 {
+			return nil, errors.New("reset")
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"value":"too big"}`)), Header: make(http.Header)}, nil
+	})}}
+	err := d.callLimited(http.MethodGet, "/source", nil, nil, 5)
+	if err == nil || err.Error() != "Appium response exceeds artifact size limit" || calls != 2 {
+		t.Fatalf("calls=%d err=%v", calls, err)
+	}
+}
+
+func TestReconnectRedactsSecretTransportFailures(t *testing.T) {
+	calls := 0
+	d := &Device{cfg: Config{URL: "http://appium.invalid", SecretFields: map[string]string{"Password": "SECRET"}}, http: &http.Client{Transport: reconnectTransport(func(*http.Request) (*http.Response, error) {
+		calls++
+		return nil, errors.New("transport echoed secret-value")
+	})}}
+	err := d.call(http.MethodGet, "/source", nil, nil)
+	if err == nil || err.Error() != "Appium request failed during secret-enabled run" || calls != 2 {
+		t.Fatalf("calls=%d err=%v", calls, err)
+	}
+}

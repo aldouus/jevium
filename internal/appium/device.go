@@ -67,7 +67,12 @@ type Device struct {
 	http         *http.Client
 }
 
-func New(cfg Config) (*Device, error) {
+func ValidateConfig(cfg Config) error {
+	_, err := prepareConfig(&cfg)
+	return err
+}
+
+func prepareConfig(cfg *Config) ([]loadedFixture, error) {
 	if raw := os.Getenv("APPIUM_SECRET_FIELDS"); raw != "" && cfg.SecretFields == nil {
 		if err := json.Unmarshal([]byte(raw), &cfg.SecretFields); err != nil {
 			return nil, fmt.Errorf("APPIUM_SECRET_FIELDS must map field labels to environment variable names")
@@ -81,13 +86,17 @@ func New(cfg Config) (*Device, error) {
 			return nil, fmt.Errorf("secret field configuration references a missing environment value")
 		}
 	}
-	if err := validateNavigation(cfg); err != nil {
+	if err := validateNavigation(*cfg); err != nil {
 		return nil, err
 	}
 	if err := validateRetrievals(cfg.Retrievals); err != nil {
 		return nil, err
 	}
-	fixtures, err := loadFixtures(cfg.Fixtures)
+	return loadFixtures(cfg.Fixtures)
+}
+
+func New(cfg Config) (*Device, error) {
+	fixtures, err := prepareConfig(&cfg)
 	if err != nil {
 		return nil, err
 	}

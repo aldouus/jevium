@@ -11,11 +11,14 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/aldous/jevium/internal/appium"
 )
 
 type deviceJob struct {
 	UDID, Directory, Derived string
 	Coverage                 string
+	Retrievals               []appium.Retrieval
 	WDA, MJPEG               int
 }
 
@@ -104,6 +107,9 @@ func runDevices(jobs []deviceJob, executable, server, bundle string, goals []str
 			if job.Coverage != "" {
 				args = append(args, "--coverage", job.Coverage)
 			}
+			for _, item := range job.Retrievals {
+				args = append(args, "--retrieve", item.RemotePath+"="+item.LocalPath)
+			}
 			for _, goal := range goals {
 				args = append(args, "--goal", goal)
 			}
@@ -142,4 +148,29 @@ func runDevices(jobs []deviceJob, executable, server, bundle string, goals []str
 		}
 	}
 	return failure
+}
+
+func deviceOutputPath(path, udid string) string {
+	ext := filepath.Ext(path)
+	return strings.TrimSuffix(path, ext) + "." + udid + ext
+}
+
+func appiumChildArgs(cfg appium.Config) []string {
+	var args []string
+	if cfg.StartURL != "" {
+		args = append(args, "--url", cfg.StartURL)
+	}
+	if cfg.DeviceControls {
+		args = append(args, "--device-controls=true")
+	}
+	if cfg.Visual != nil {
+		args = append(args, "--visual-ocr=true")
+	}
+	for _, app := range cfg.AllowedApps {
+		args = append(args, "--allow-app", app)
+	}
+	for _, fixture := range cfg.Fixtures {
+		args = append(args, "--fixture", fixture.LocalPath+"="+fixture.RemotePath)
+	}
+	return args
 }

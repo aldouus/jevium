@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/aldous/jevium/internal/agent"
@@ -101,6 +100,24 @@ func run(args []string) (runErr error) {
 		}
 		return listDevices(os.Stdout)
 	}
+	deviceConfig := appium.Config{StartURL: *startURL, AllowedApps: allowedApps, BundleID: *bundle, DeviceControls: *deviceControls}
+	if *visualOCR {
+		deviceConfig.Visual = visual.MacOCR{}
+	}
+	for _, value := range retrievals {
+		item, err := appium.ParseRetrieval(value)
+		if err != nil {
+			return err
+		}
+		deviceConfig.Retrievals = append(deviceConfig.Retrievals, item)
+	}
+	for _, value := range fixtures {
+		item, err := appium.ParseFixture(value)
+		if err != nil {
+			return err
+		}
+		deviceConfig.Fixtures = append(deviceConfig.Fixtures, item)
+	}
 	if *devices != "" {
 		explicitUDID := false
 		fs.Visit(func(f *flag.Flag) {
@@ -111,8 +128,8 @@ func run(args []string) (runErr error) {
 		if explicitUDID {
 			return fmt.Errorf("choose --devices or --udid, not both")
 		}
-		if *mode != "appium" || *interactive || *session != "" || *resultFile != "" || *startURL != "" {
-			return fmt.Errorf("--devices requires appium mode without --tui, --session-id, --result-file, or --url")
+		if *mode != "appium" || *interactive || *session != "" || *resultFile != "" {
+			return fmt.Errorf("--devices requires appium mode without --tui, --session-id, or --result-file")
 		}
 		if len(goals) == 0 {
 			return fmt.Errorf("supply --goal")
@@ -122,6 +139,7 @@ func run(args []string) (runErr error) {
 			return err
 		}
 		childArgs := []string{"--scope", *scope}
+		childArgs = append(childArgs, appiumChildArgs(deviceConfig)...)
 		for _, expectation := range expectations {
 			childArgs = append(childArgs, "--expect", expectation)
 		}
@@ -129,9 +147,18 @@ func run(args []string) (runErr error) {
 			childArgs = append(childArgs, "--audit-url", url)
 		}
 		if *coveragePath != "" {
-			ext := filepath.Ext(*coveragePath)
 			for i := range jobs {
-				jobs[i].Coverage = strings.TrimSuffix(*coveragePath, ext) + "." + jobs[i].UDID + ext
+				jobs[i].Coverage = deviceOutputPath(*coveragePath, jobs[i].UDID)
+			}
+		}
+		for i := range jobs {
+			for _, item := range deviceConfig.Retrievals {
+				jobs[i].Retrievals = append(jobs[i].Retrievals, appium.Retrieval{RemotePath: item.RemotePath, LocalPath: deviceOutputPath(item.LocalPath, jobs[i].UDID)})
+			}
+			cfg := deviceConfig
+			cfg.Retrievals = jobs[i].Retrievals
+			if err := appium.ValidateConfig(cfg); err != nil {
+				return err
 			}
 		}
 		if _, err := env.Require("TYPESAFE_API_KEY", "to call TypeSafe Jev"); err != nil {
@@ -158,34 +185,9 @@ func run(args []string) (runErr error) {
 	var device *appium.Device
 	switch *mode {
 	case "appium":
-		var recognizer visual.Recognizer
-		if *visualOCR {
-			recognizer = visual.MacOCR{}
-		}
-		var downloads []appium.Retrieval
-		for _, value := range retrievals {
-			item, e := appium.ParseRetrieval(value)
-			if e != nil {
-				return e
-			}
-			downloads = append(downloads, item)
-		}
-		var configured []appium.Fixture
-		for _, value := range fixtures {
-			f, e := appium.ParseFixture(value)
-			if e != nil {
-				return e
-			}
-			configured = append(configured, f)
-		}
-		device, err = appium.New(appium.Config{
-			StartURL: *startURL, AllowedApps: allowedApps,
-			DeviceControls: *deviceControls,
-			URL:            *appiumURL, UDID: *udid, BundleID: *bundle, SessionID: *session, WDALocalPort: *wda, MJPEGServerPort: *mjpeg, DerivedDataPath: *derived,
-			Fixtures:   configured,
-			Retrievals: downloads,
-			Visual:     recognizer,
-		})
+		deviceConfig.URL, deviceConfig.UDID, deviceConfig.SessionID = *appiumURL, *udid, *session
+		deviceConfig.WDALocalPort, deviceConfig.MJPEGServerPort, deviceConfig.DerivedDataPath = *wda, *mjpeg, *derived
+		device, err = appium.New(deviceConfig)
 		surface = device
 	case "chrome":
 		if *startURL == "" {
