@@ -61,7 +61,6 @@ func validateRetrievals(items []Retrieval) error {
 	return nil
 }
 
-// RetrieveArtifacts performs read-only device transfers after the run. Existing local files are never replaced.
 func (d *Device) RetrieveArtifacts() error {
 	if err := validateRetrievals(d.cfg.Retrievals); err != nil {
 		return err
@@ -93,7 +92,6 @@ func (d *Device) RetrieveArtifacts() error {
 }
 
 func saveArtifact(destination string, data []byte) (err error) {
-	// Publish by hard link after the complete write: Link fails if the destination appeared meanwhile.
 	file, err := os.CreateTemp(filepath.Dir(destination), ".jevium-artifact-*")
 	if err != nil {
 		return err
