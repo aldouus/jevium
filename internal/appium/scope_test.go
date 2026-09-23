@@ -6,16 +6,10 @@ import (
 )
 
 func TestWebViewScopeDoesNotLeakToToolbar(t *testing.T) {
-	source := `<AppiumAUT>
- <XCUIElementTypeWindow width="375" height="812">
- <XCUIElementTypeScrollView width="375" height="700">
-  <XCUIElementTypeWebView width="375" height="700">
-   <XCUIElementTypeButton label="Site menu" width="60" height="40"/>
-  </XCUIElementTypeWebView>
- </XCUIElementTypeScrollView>
-  <XCUIElementTypeButton label="Browser menu" y="720" width="60" height="40"/>
- </XCUIElementTypeWindow>
- </AppiumAUT>`
+	source := screen(window(375, 812,
+		scroll("", bounds(0, 0, 375, 700), fixtureNode{Kind: "WebView", Rect: bounds(0, 0, 375, 700), Children: []fixtureNode{button("Site menu", bounds(0, 0, 60, 40))}}),
+		button("Browser menu", bounds(0, 720, 60, 40)),
+	))
 	p, err := appium.SnapshotFromSource(source, "browser", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -45,10 +39,7 @@ func TestWebViewScopeDoesNotLeakToToolbar(t *testing.T) {
 }
 
 func TestNativeScrollUsesOnlyExposedPartOfWebWrapper(t *testing.T) {
-	source := `<AppiumAUT><XCUIElementTypeWindow width="400" height="800">
- <XCUIElementTypeScrollView width="400" height="800">
-  <XCUIElementTypeWebView x="100" y="0" width="300" height="800"/>
- </XCUIElementTypeScrollView></XCUIElementTypeWindow></AppiumAUT>`
+	source := screen(window(400, 800, scroll("", bounds(0, 0, 400, 800), fixtureNode{Kind: "WebView", Rect: bounds(100, 0, 300, 800)})))
 	p, err := appium.SnapshotFromSource(source, "app", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -68,12 +59,10 @@ func TestNativeScrollUsesOnlyExposedPartOfWebWrapper(t *testing.T) {
 }
 
 func TestWebWrapperDoesNotHideSiblingNativeScroll(t *testing.T) {
-	source := `<AppiumAUT><XCUIElementTypeWindow width="400" height="800">
- <XCUIElementTypeScrollView x="100" width="300" height="800">
-  <XCUIElementTypeWebView x="100" width="300" height="800"/>
- </XCUIElementTypeScrollView>
- <XCUIElementTypeTable width="100" height="800"/>
- </XCUIElementTypeWindow></AppiumAUT>`
+	source := screen(window(400, 800,
+		scroll("", bounds(100, 0, 300, 800), fixtureNode{Kind: "WebView", Rect: bounds(100, 0, 300, 800)}),
+		fixtureNode{Kind: "Table", Rect: bounds(0, 0, 100, 800)},
+	))
 	p, err := appium.SnapshotFromSource(source, "app", nil)
 	if err != nil {
 		t.Fatal(err)

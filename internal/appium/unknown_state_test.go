@@ -7,9 +7,8 @@ import (
 )
 
 func TestMissingSwitchValueCannotProveUnchecked(t *testing.T) {
-	p, err := appium.SnapshotFromSource(`<AppiumAUT>
- <XCUIElementTypeSwitch label="Enabled" x="0" y="0" width="100" height="40"/>
- </AppiumAUT>`, "settings", nil)
+	source := screen(fixtureNode{Kind: "Switch", Label: "Enabled", Rect: bounds(0, 0, 100, 40)})
+	p, err := appium.SnapshotFromSource(source, "settings", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

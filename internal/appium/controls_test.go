@@ -19,11 +19,11 @@ func TestDeviceControlsFollowObservedState(t *testing.T) {
 		var value any
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/source"):
-			source := `<AppiumAUT><XCUIElementTypeWindow width="375" height="812"/>`
+			nodes := []fixtureNode{window(375, 812)}
 			if keyboard {
-				source += `<XCUIElementTypeKeyboard visible="true"/>`
+				nodes = append(nodes, fixtureNode{Kind: "Keyboard"})
 			}
-			value = source + `</AppiumAUT>`
+			value = screen(nodes...)
 		case strings.HasSuffix(r.URL.Path, "/is_locked"):
 			if r.Method != "POST" {
 				t.Error("lock state requires POST")

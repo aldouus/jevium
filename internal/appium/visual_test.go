@@ -37,7 +37,7 @@ func TestVisualTargetsUseObservedFrameAndRejectChangedPixels(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/window/rect"):
 			value = windowRect{Width: 375, Height: 800}
 		case strings.HasSuffix(r.URL.Path, "/source"):
-			value = `<AppiumAUT><XCUIElementTypeWindow width="375" height="800"/></AppiumAUT>`
+			value = screen(window(375, 800))
 		case strings.HasSuffix(r.URL.Path, "/screenshot"):
 			value = frame
 		case strings.HasSuffix(r.URL.Path, "/execute/sync"):

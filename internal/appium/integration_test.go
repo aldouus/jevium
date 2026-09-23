@@ -24,7 +24,7 @@ func TestInvisibleKeyboardDoesNotRequestActiveElement(t *testing.T) {
 	}))
 	defer srv.Close()
 	d := Device{cfg: Config{URL: srv.URL}, http: srv.Client()}
-	_, err := d.snapshot(`<AppiumAUT><XCUIElementTypeWindow width="375" height="812"><XCUIElementTypeKeyboard visible="false"/></XCUIElementTypeWindow></AppiumAUT>`)
+	_, err := d.snapshot(screen(window(375, 812, fixtureNode{Kind: "Keyboard", Hidden: true})))
 	if err != nil {
 		t.Fatal(err)
 	}

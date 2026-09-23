@@ -7,10 +7,8 @@ import (
 )
 
 func TestPickerCurrentStateWithoutOfferedOptions(t *testing.T) {
-	p, err := appium.SnapshotFromSource(`<AppiumAUT>
- <XCUIElementTypePickerWheel name="Country" label="Country" value="Canada" width="100" height="100"/>
- <XCUIElementTypeTextField label="Unknown" y="100" width="100" height="40"/>
- </AppiumAUT>`, "app", nil)
+	source := screen(fixtureNode{Kind: "PickerWheel", Name: "Country", Label: "Country", Value: "Canada", Rect: bounds(0, 0, 100, 100)}, fixtureNode{Kind: "TextField", Label: "Unknown", Rect: bounds(0, 100, 100, 40)})
+	p, err := appium.SnapshotFromSource(source, "app", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
