@@ -24,8 +24,6 @@ type Region struct {
 	H     float64 `json:"h"`
 }
 
-// Recognizer returns deterministic observation regions in normalized top-left image coordinates.
-// Implementations are trusted observation adapters, not language-model coordinate generators.
 type Recognizer interface {
 	Recognize([]byte) ([]Region, error)
 }

@@ -61,7 +61,6 @@ func (d *Device) visualPage(p page.Page) (page.Page, error) {
 			break
 		}
 		rect := page.Rect{X: r.X * p.W, Y: r.Y * p.H, W: r.W * p.W, H: r.H * p.H}
-		// Native targets already carry stronger accessibility semantics.
 		covered := false
 		for _, a := range p.Actions {
 			if a.Rect != nil && rect.X+rect.W/2 >= a.Rect.X && rect.X+rect.W/2 < a.Rect.X+a.Rect.W && rect.Y+rect.H/2 >= a.Rect.Y && rect.Y+rect.H/2 < a.Rect.Y+a.Rect.H && a.Kind == "click" {

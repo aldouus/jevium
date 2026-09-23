@@ -8,7 +8,6 @@ import (
 )
 
 func TestMacOCRRecognizesRenderedText(t *testing.T) {
-	// Exercise the actual Vision adapter without a device, network, or checked-in screenshot.
 	frame, err := exec.Command("xcrun", "swift", "-e", `
 import AppKit
 let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 800, pixelsHigh: 200, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
