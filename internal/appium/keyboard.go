@@ -1,10 +1,10 @@
 package appium
 
 import (
+	"encoding/xml"
 	"github.com/aldous/jevium/internal/page"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 func (d *Device) keyboardSnapshot(src string) (page.Page, error) {
@@ -12,7 +12,11 @@ func (d *Device) keyboardSnapshot(src string) (page.Page, error) {
 	if err != nil {
 		return p, err
 	}
-	if !strings.Contains(src, "<XCUIElementTypeKeyboard") {
+	var root node
+	if err := xml.Unmarshal([]byte(src), &root); err != nil {
+		return p, err
+	}
+	if !visibleKeyboard(root) {
 		return p, nil
 	}
 	var active map[string]string
