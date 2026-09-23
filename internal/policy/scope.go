@@ -5,7 +5,6 @@ import (
 	"strings"
 )
 
-// ScopedActions restricts model choices, while retaining wait as a non-mutating operation.
 func ScopedActions(p page.Page, scope string) []page.Action {
 	out := make([]page.Action, 0, len(p.Actions))
 	for _, a := range p.Actions {
