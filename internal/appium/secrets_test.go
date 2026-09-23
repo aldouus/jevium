@@ -38,6 +38,37 @@ func TestConfiguredSecretNeverEntersObservation(t *testing.T) {
 	}
 }
 
+func TestSecretEchoesAreRedactedFromObservedControls(t *testing.T) {
+	t.Setenv("TEST_PASSWORD", "private-password")
+	source := screen(
+		fixtureNode{Kind: "SecureTextField", Name: "Password", Label: "Password", Value: "private-password", Rect: bounds(20, 30, 200, 40)},
+		fixtureNode{Kind: "TextField", Name: "echo-private-password", Label: "Echo private-password", Value: "private-password", Rect: bounds(20, 90, 200, 40)},
+	)
+	srv, _ := mockAppium(t, source, nil)
+	d, err := appium.New(appium.Config{URL: srv.URL, UDID: "test", HTTP: srv.Client(), SecretFields: map[string]string{"Password": "TEST_PASSWORD"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := d.Observe(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Controls) != 1 {
+		t.Fatalf("secure field must be excluded; controls=%d", len(p.Controls))
+	}
+	control := p.Controls[0]
+	if control.Label != "Echo [redacted]" {
+		t.Fatal("control label leaked configured secret")
+	}
+	if control.Value == nil || *control.Value != "[redacted]" {
+		t.Fatal("control value was not redacted")
+	}
+	node, ok := control.Node.(string)
+	if !ok || strings.Contains(node, "private-password") || !strings.Contains(node, "[redacted]") {
+		t.Fatal("control native identity was not redacted")
+	}
+}
+
 func TestSecretEntryVerifiesFocusAndRedactsDriverErrors(t *testing.T) {
 	t.Setenv("TEST_PASSWORD", "private-password")
 	source := screen(fixtureNode{Kind: "SecureTextField", Name: "Password", Label: "Password", Rect: bounds(20.5, 30, 200, 40)})
