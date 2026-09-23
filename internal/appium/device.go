@@ -284,7 +284,6 @@ func (d *Device) Act(action page.Action, p page.Page, text *string) error {
 		if err := d.requireActive(id); err != nil {
 			return err
 		}
-		// XCUIKeyModifierShift and Command, from XCUIAutomation/XCUIElement.h.
 		key, flags := "a", 1<<4
 		if action.Kind == "key_select_left" {
 			key, flags = "XCUIKeyboardKeyLeftArrow", 1<<1
