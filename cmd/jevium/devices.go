@@ -67,7 +67,6 @@ type deviceResult struct {
 }
 
 func runDevices(jobs []deviceJob, executable, server, bundle string, goals []string, out io.Writer, launch deviceProcess) error {
-	// Reserve every output directory before connecting any device. Never overwrite a prior run.
 	for _, job := range jobs {
 		if err := os.MkdirAll(filepath.Dir(job.Directory), 0700); err != nil {
 			return err

@@ -179,7 +179,6 @@ func (d *Device) callLimited(method, path string, body any, dest any, limit int6
 	err := d.callOnce(method, path, body, dest, limit)
 	var transport transportError
 	if method == http.MethodGet && errors.As(err, &transport) {
-		// Reconnect only a read. An uncertain mutation or session creation is never replayed.
 		err = d.callOnce(method, path, body, dest, limit)
 	}
 	if err != nil && len(d.cfg.SecretFields) > 0 {

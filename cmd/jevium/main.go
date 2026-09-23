@@ -200,7 +200,6 @@ func run(args []string) (runErr error) {
 	}
 	if *resultFile != "" {
 		defer func() {
-			// The process exit code still reports execution failures; state records partial progress.
 			data, err := json.Marshal(a.State)
 			if err == nil {
 				err = os.WriteFile(*resultFile, data, 0o600)
