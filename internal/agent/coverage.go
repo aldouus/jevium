@@ -60,7 +60,6 @@ func (c *Coverage) Result(before page.Page, a page.Action, after page.Page, text
 	if before.Fingerprint != after.Fingerprint {
 		entry.Changed++
 	}
-	// A changed page alone never proves the intended effect.
 	matches := 0
 	verified := false
 	for _, next := range after.Actions {
