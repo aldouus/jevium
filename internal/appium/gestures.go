@@ -77,7 +77,6 @@ func (d *Device) gesture(a page.Action) error {
 		}
 		return d.execute("mobile: dragFromToForDuration", []dragArg{{FromX: x, FromY: y, ToX: a.Destination.X + a.Destination.W/2, ToY: a.Destination.Y + a.Destination.H/2, Duration: 1}})
 	case "pinch_in", "pinch_out":
-		// Two bounded touch paths avoid pinching the application instead of the target.
 		start, end := .15, .35
 		if a.Kind == "pinch_in" {
 			start, end = end, start
